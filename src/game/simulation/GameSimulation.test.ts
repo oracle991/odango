@@ -41,6 +41,49 @@ const fireTestSkewer = (
 };
 
 describe("three-ball core rules", () => {
+  it("aims at a position and keeps that angle as time passes", () => {
+    const simulation = new GameSimulation(
+      createStage([ball("a", 400), ball("b", 500), ball("c", 600)]),
+    );
+
+    simulation.setAimPosition(900, 300);
+    const angle = simulation.getCurrentAngle();
+    simulation.update(2);
+
+    expect(angle).toBeCloseTo(53.86, 1);
+    expect(simulation.getCurrentAngle()).toBe(angle);
+    expect(simulation.state.aimPosition).toEqual({ x: 900, y: 300 });
+  });
+
+  it("clamps aim to the cannon angle limits", () => {
+    const simulation = new GameSimulation(
+      createStage([ball("a", 400), ball("b", 500), ball("c", 600)]),
+    );
+
+    simulation.setAimPosition(arena.right, arena.bottom);
+    expect(simulation.getCurrentAngle()).toBe(25);
+
+    simulation.setAimPosition(arena.left, arena.bottom);
+    expect(simulation.getCurrentAngle()).toBe(155);
+  });
+
+  it("launches at the latest aim angle and restores the default aim on retry", () => {
+    const simulation = new GameSimulation(
+      createStage([ball("a", 400), ball("b", 500), ball("c", 600)]),
+    );
+    simulation.setAimPosition(900, 300);
+    const launchAngle = simulation.getCurrentAngle();
+    simulation.beginCharge();
+
+    expect(simulation.releaseCharge()).toBe(true);
+    expect(simulation.state.cannonAngle).toBe(launchAngle);
+    expect(simulation.state.skewer?.velocity.x).toBeGreaterThan(0);
+
+    simulation.reset();
+    expect(simulation.getCurrentAngle()).toBe(90);
+    expect(simulation.state.aimPosition).toEqual({ x: 640, y: arena.top });
+  });
+
   it("collects balls in contact order and never attaches more than three", () => {
     const simulation = new GameSimulation(
       createStage([

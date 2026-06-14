@@ -39,6 +39,7 @@ export class PlayScene extends Phaser.Scene {
   private targetGraphics!: Phaser.GameObjects.Graphics;
   private trajectoryGraphics!: Phaser.GameObjects.Graphics;
   private cannonGraphics!: Phaser.GameObjects.Graphics;
+  private aimGraphics!: Phaser.GameObjects.Graphics;
   private skewerGraphics!: Phaser.GameObjects.Graphics;
   private fxGraphics!: Phaser.GameObjects.Graphics;
   private spaceKey!: Phaser.Input.Keyboard.Key;
@@ -58,6 +59,7 @@ export class PlayScene extends Phaser.Scene {
     this.targetGraphics = this.add.graphics();
     this.trajectoryGraphics = this.add.graphics();
     this.cannonGraphics = this.add.graphics();
+    this.aimGraphics = this.add.graphics();
     this.skewerGraphics = this.add.graphics();
     this.fxGraphics = this.add.graphics();
     this.drawWorld();
@@ -76,10 +78,19 @@ export class PlayScene extends Phaser.Scene {
       gameEvents.removeEventListener("command", this.onCommand);
     });
 
-    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      if (pointer.y < DESIGN_HEIGHT - 110) this.simulation.beginCharge();
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      if (!pointer.wasTouch) this.updateAim(pointer);
     });
-    this.input.on("pointerup", () => this.simulation.releaseCharge());
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      if (!this.isPlayArea(pointer)) return;
+      this.updateAim(pointer);
+      if (!pointer.wasTouch && pointer.leftButtonDown()) {
+        this.simulation.beginCharge();
+      }
+    });
+    this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+      if (!pointer.wasTouch) this.simulation.releaseCharge();
+    });
     window.dispatchEvent(new CustomEvent("odango-ready"));
   }
 
@@ -111,6 +122,7 @@ export class PlayScene extends Phaser.Scene {
 
     this.drawTargets();
     this.drawCannon();
+    this.drawAim();
     this.drawSkewer();
     this.drawPreview();
     this.drawFx();
@@ -149,6 +161,19 @@ export class PlayScene extends Phaser.Scene {
   private setPaused(paused: boolean): void {
     if (this.simulation.state.paused !== paused) this.simulation.togglePause();
     window.dispatchEvent(new CustomEvent("odango-pause", { detail: paused }));
+  }
+
+  private isPlayArea(pointer: Phaser.Input.Pointer): boolean {
+    return pointer.x >= arena.left &&
+      pointer.x <= arena.right &&
+      pointer.y >= arena.top &&
+      pointer.y <= arena.bottom;
+  }
+
+  private updateAim(pointer: Phaser.Input.Pointer): void {
+    if (!this.isPlayArea(pointer)) return;
+    this.simulation.setAimPosition(pointer.x, pointer.y);
+    this.lastPreviewKey = "";
   }
 
   private drawWorld(): void {
@@ -218,6 +243,33 @@ export class PlayScene extends Phaser.Scene {
       g.lineStyle(5, 0xffb84d, 0.8);
       g.strokeCircle(cannon.x, cannon.y, pulse);
     }
+  }
+
+  private drawAim(): void {
+    const g = this.aimGraphics;
+    const { x, y } = this.simulation.state.aimPosition;
+    const angle = Phaser.Math.DegToRad(this.simulation.getCurrentAngle());
+    const directionX = cannon.x + Math.cos(angle) * 150;
+    const directionY = cannon.y - Math.sin(angle) * 150;
+    g.clear();
+    if (
+      this.simulation.state.paused ||
+      this.simulation.state.status !== "playing" ||
+      this.simulation.state.skewer
+    ) {
+      return;
+    }
+
+    g.lineStyle(2, 0xffcf70, 0.26);
+    g.lineBetween(cannon.x, cannon.y, directionX, directionY);
+    g.lineStyle(2, 0xffcf70, 0.75);
+    g.strokeCircle(x, y, 12);
+    g.lineBetween(x - 18, y, x - 7, y);
+    g.lineBetween(x + 7, y, x + 18, y);
+    g.lineBetween(x, y - 18, x, y - 7);
+    g.lineBetween(x, y + 7, x, y + 18);
+    g.fillStyle(0xffcf70, 0.9);
+    g.fillCircle(x, y, 3);
   }
 
   private drawTargets(): void {

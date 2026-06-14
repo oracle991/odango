@@ -71,11 +71,28 @@ export class GameSimulation {
   }
 
   getCurrentAngle(): number {
-    const phase =
-      (this.state.elapsedSeconds / cannon.swingPeriodSeconds) * Math.PI * 2;
-    const midpoint = (cannon.minAngle + cannon.maxAngle) / 2;
-    const amplitude = (cannon.maxAngle - cannon.minAngle) / 2;
-    return midpoint + Math.sin(phase) * amplitude;
+    return this.state.cannonAngle;
+  }
+
+  setAimPosition(x: number, y: number): void {
+    if (this.state.paused || this.state.status !== "playing") return;
+
+    const aimX = Math.min(arena.right, Math.max(arena.left, x));
+    const aimY = Math.min(arena.bottom, Math.max(arena.top, y));
+    const deltaX = aimX - cannon.x;
+    const angle = aimY >= cannon.y
+      ? deltaX < 0
+        ? 180
+        : deltaX > 0
+          ? 0
+          : 90
+      : Math.atan2(cannon.y - aimY, deltaX) * (180 / Math.PI);
+
+    this.state.aimPosition = { x: aimX, y: aimY };
+    this.state.cannonAngle = Math.min(
+      cannon.maxAngle,
+      Math.max(cannon.minAngle, angle),
+    );
   }
 
   beginCharge(): void {
@@ -94,9 +111,8 @@ export class GameSimulation {
 
   releaseCharge(): boolean {
     if (!this.state.charging || this.state.paused) return false;
-    const angle = this.getCurrentAngle();
+    const angle = this.state.cannonAngle;
     const speed = chargeToSpeed(this.state.chargeSeconds, simulationConfig);
-    this.state.cannonAngle = angle;
     this.state.lastLaunchSpeed = speed;
     this.state.skewer = createSkewer(cannon, angle, speed);
     this.state.skewers -= 1;
@@ -116,7 +132,7 @@ export class GameSimulation {
     const speed = chargeToSpeed(this.state.chargeSeconds, simulationConfig);
     return predictTrajectory(
       cannon,
-      this.getCurrentAngle(),
+      this.state.cannonAngle,
       speed,
       arena,
       simulationConfig,
@@ -138,6 +154,7 @@ export class GameSimulation {
     return {
       elapsedSeconds: 0,
       cannonAngle: 90,
+      aimPosition: { x: cannon.x, y: arena.top },
       chargeSeconds: 0,
       charging: false,
       paused: false,

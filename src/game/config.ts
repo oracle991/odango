@@ -15,7 +15,6 @@ export const cannon: CannonConfig = {
   y: arena.bottom - 28,
   minAngle: 25,
   maxAngle: 155,
-  swingPeriodSeconds: 4,
   barrelLength: 74,
 };
 

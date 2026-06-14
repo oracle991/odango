@@ -15,7 +15,6 @@ export interface CannonConfig {
   y: number;
   minAngle: number;
   maxAngle: number;
-  swingPeriodSeconds: number;
   barrelLength: number;
 }
 
@@ -61,6 +60,7 @@ export type StageStatus = "playing" | "won" | "lost";
 export interface SimulationState {
   elapsedSeconds: number;
   cannonAngle: number;
+  aimPosition: Vec2;
   chargeSeconds: number;
   charging: boolean;
   paused: boolean;

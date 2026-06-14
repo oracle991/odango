@@ -77,8 +77,8 @@ window.addEventListener("odango-hud", (event) => {
       : detail.skewerActive
         ? `${detail.attachedBalls} / 3 個。壁まで届けよう`
       : detail.charging
-        ? "離した瞬間の角度で発射"
-        : "串先端で3個刺して壁へ届けよう";
+        ? "狙いを調整し、離して発射"
+        : "カーソルやタップで狙い、串先端で3個刺そう";
   }
   if (resultPanel) {
     resultPanel.hidden = detail.status === "playing";
