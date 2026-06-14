@@ -40,6 +40,22 @@ export interface ProjectileState {
   active: boolean;
 }
 
+export interface EnemyState {
+  id: string;
+  position: Vec2;
+  radius: number;
+  alive: boolean;
+}
+
+export interface BombState {
+  id: string;
+  position: Vec2;
+  radius: number;
+  triggered: boolean;
+}
+
+export type StageStatus = "playing" | "won" | "lost";
+
 export interface SimulationState {
   elapsedSeconds: number;
   cannonAngle: number;
@@ -48,8 +64,37 @@ export interface SimulationState {
   paused: boolean;
   projectile: ProjectileState | null;
   lastLaunchSpeed: number;
+  ammo: number;
+  score: number;
+  status: StageStatus;
+  shotCombo: number;
+  enemies: EnemyState[];
+  bombs: BombState[];
 }
 
 export interface TrajectoryPoint extends Vec2 {
   bounce: boolean;
+}
+
+export interface TargetDefinition {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+}
+
+export interface StageDefinition {
+  id: string;
+  ammo: number;
+  targetScore: number;
+  enemies: TargetDefinition[];
+  bombs: TargetDefinition[];
+}
+
+export interface SimulationUpdate {
+  bounced: boolean;
+  enemyHits: Vec2[];
+  bombHit: Vec2 | null;
+  shotEnded: boolean;
+  statusChanged: boolean;
 }

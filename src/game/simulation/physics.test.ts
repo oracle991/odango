@@ -4,6 +4,7 @@ import {
   chargeToSpeed,
   createProjectile,
   predictTrajectory,
+  segmentCircleIntersection,
   stepProjectile,
 } from "./physics";
 
@@ -32,14 +33,39 @@ describe("cannon physics", () => {
     expect(projectile.bounces).toBe(1);
   });
 
-  it("ends a projectile after the configured bounce limit", () => {
+  it("allows six bounces and ends on the following surface contact", () => {
     const projectile = createProjectile(cannon, 45, 700);
     projectile.bounces = simulationConfig.maxBounces - 1;
     projectile.position.y = arena.bottom - simulationConfig.radius - 1;
     projectile.velocity.y = 300;
 
     stepProjectile(projectile, 1 / 60, arena, simulationConfig);
+    expect(projectile.active).toBe(true);
+    expect(projectile.bounces).toBe(simulationConfig.maxBounces);
+
+    projectile.position.y = arena.bottom - simulationConfig.radius - 1;
+    projectile.velocity.y = 300;
+    stepProjectile(projectile, 1 / 60, arena, simulationConfig);
     expect(projectile.active).toBe(false);
     expect(projectile.bounces).toBe(simulationConfig.maxBounces);
+  });
+
+  it("finds a circle crossed between fixed-step positions", () => {
+    expect(
+      segmentCircleIntersection(
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 50, y: 0 },
+        10,
+      ),
+    ).toBeCloseTo(0.4);
+    expect(
+      segmentCircleIntersection(
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 50, y: 30 },
+        10,
+      ),
+    ).toBeNull();
   });
 });

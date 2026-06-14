@@ -28,6 +28,6 @@ export const simulationConfig: SimulationConfig = {
   minLaunchSpeed: 430,
   maxLaunchSpeed: 900,
   maxBounces: 6,
-  maxFlightSeconds: 20,
+  maxFlightSeconds: 10,
   fixedStepSeconds: 1 / 120,
 };

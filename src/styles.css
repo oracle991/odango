@@ -256,7 +256,8 @@ button:focus-visible {
 }
 
 .help-card button,
-.pause-panel button {
+.pause-panel button,
+.result-panel button {
   padding: 8px 18px;
   border: 0;
   border-radius: 99px;
@@ -281,7 +282,8 @@ kbd {
   transform: translateY(12px);
 }
 
-.pause-panel {
+.pause-panel,
+.result-panel {
   position: absolute;
   z-index: 10;
   top: 50%;
@@ -297,17 +299,20 @@ kbd {
   transform: translate(-50%, -50%);
 }
 
-.pause-panel[hidden] {
+.pause-panel[hidden],
+.result-panel[hidden] {
   display: none;
 }
 
-.pause-panel h2 {
+.pause-panel h2,
+.result-panel h2 {
   margin: 4px 0 24px;
   font-family: "Kiwi Maru", serif;
   font-size: 34px;
 }
 
-.pause-panel button {
+.pause-panel button,
+.result-panel button {
   width: 100%;
   margin-top: 10px;
 }
@@ -315,6 +320,37 @@ kbd {
 .pause-panel .secondary {
   color: #fff8e8;
   background: #4b405b;
+}
+
+.result-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.result-summary span {
+  padding: 14px;
+  border: 1px solid rgba(244, 215, 161, 0.22);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.result-summary small,
+.result-summary b {
+  display: block;
+}
+
+.result-summary small {
+  color: #cabfbd;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+.result-summary b {
+  margin-top: 3px;
+  color: #ffcf70;
+  font-size: 28px;
 }
 
 @media (max-width: 720px) {

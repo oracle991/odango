@@ -81,15 +81,49 @@ export function stepProjectile(
     bounced = true;
   }
 
-  if (bounced) projectile.bounces += 1;
-  if (
-    projectile.bounces >= config.maxBounces ||
-    projectile.ageSeconds >= config.maxFlightSeconds
-  ) {
+  if (bounced) {
+    if (projectile.bounces >= config.maxBounces) {
+      projectile.active = false;
+    } else {
+      projectile.bounces += 1;
+    }
+  }
+  if (projectile.ageSeconds >= config.maxFlightSeconds) {
     projectile.active = false;
   }
 
   return bounced;
+}
+
+export function segmentCircleIntersection(
+  start: Vec2,
+  end: Vec2,
+  center: Vec2,
+  radius: number,
+): number | null {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const fx = start.x - center.x;
+  const fy = start.y - center.y;
+  const a = dx * dx + dy * dy;
+
+  if (a === 0) {
+    return fx * fx + fy * fy <= radius * radius ? 0 : null;
+  }
+
+  const c = fx * fx + fy * fy - radius * radius;
+  if (c <= 0) return 0;
+
+  const b = 2 * (fx * dx + fy * dy);
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) return null;
+
+  const root = Math.sqrt(discriminant);
+  const near = (-b - root) / (2 * a);
+  const far = (-b + root) / (2 * a);
+  if (near >= 0 && near <= 1) return near;
+  if (far >= 0 && far <= 1) return far;
+  return null;
 }
 
 export function predictTrajectory(

@@ -11,12 +11,13 @@
       <section class="game-shell" aria-label="おだんご重力砲台">
         <header class="hud">
           <div>
-            <p class="eyebrow">M1 FLIGHT LAB</p>
+            <p class="eyebrow">M2 CORE RULES</p>
             <h1>おだんご重力砲台</h1>
           </div>
           <div class="readouts" aria-live="polite">
-            <span><b id="angle-value">--</b><small>角度</small></span>
-            <span><b id="power-value">--</b><small>初速</small></span>
+            <span><b id="score-value">0</b><small>スコア</small></span>
+            <span><b id="enemy-value">5</b><small>残り敵</small></span>
+            <span><b id="ammo-value">6</b><small>残弾</small></span>
             <span><b id="bounce-value">0 / 6</b><small>反射</small></span>
           </div>
           <button id="pause-button" class="icon-button" type="button" aria-label="ポーズ">Ⅱ</button>
@@ -35,6 +36,16 @@
           <h2>ひとやすみ</h2>
           <button id="resume-button" type="button">つづける</button>
           <button id="retry-button" class="secondary" type="button">やりなおす</button>
+        </div>
+
+        <div id="result-panel" class="result-panel" hidden>
+          <p id="result-eyebrow" class="eyebrow">STAGE CLEAR</p>
+          <h2 id="result-title">おみごと！</h2>
+          <div class="result-summary">
+            <span><small>SCORE</small><b id="result-score">0</b></span>
+            <span><small>RANK</small><b id="result-rank">B</b></span>
+          </div>
+          <button id="result-retry-button" type="button">もう一度あそぶ</button>
         </div>
 
         <footer class="controls">

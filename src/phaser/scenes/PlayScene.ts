@@ -11,11 +11,25 @@ interface HudDetail {
   charging: boolean;
   charge: number;
   projectileActive: boolean;
+  score: number;
+  ammo: number;
+  enemies: number;
+  combo: number;
+  status: "playing" | "won" | "lost";
+  targetScore: number;
+}
+
+interface ImpactFx {
+  x: number;
+  y: number;
+  kind: "enemy" | "bomb";
+  life: number;
 }
 
 export class PlayScene extends Phaser.Scene {
   private readonly simulation = new GameSimulation();
   private worldGraphics!: Phaser.GameObjects.Graphics;
+  private targetGraphics!: Phaser.GameObjects.Graphics;
   private trajectoryGraphics!: Phaser.GameObjects.Graphics;
   private cannonGraphics!: Phaser.GameObjects.Graphics;
   private projectileGraphics!: Phaser.GameObjects.Graphics;
@@ -24,6 +38,7 @@ export class PlayScene extends Phaser.Scene {
   private debugVisible = true;
   private lastPreviewKey = "";
   private flash = 0;
+  private impacts: ImpactFx[] = [];
 
   constructor() {
     super("play");
@@ -32,6 +47,7 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     this.cameras.main.setBackgroundColor("#17162b");
     this.worldGraphics = this.add.graphics();
+    this.targetGraphics = this.add.graphics();
     this.trajectoryGraphics = this.add.graphics();
     this.cannonGraphics = this.add.graphics();
     this.projectileGraphics = this.add.graphics();
@@ -63,10 +79,20 @@ export class PlayScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) this.simulation.beginCharge();
     if (Phaser.Input.Keyboard.JustUp(this.spaceKey)) this.simulation.releaseCharge();
 
-    const bounced = this.simulation.update(deltaMilliseconds / 1000);
-    if (bounced) this.flash = 1;
+    const result = this.simulation.update(deltaMilliseconds / 1000);
+    if (result.bounced) this.flash = 1;
+    for (const hit of result.enemyHits) {
+      this.impacts.push({ ...hit, kind: "enemy", life: 1 });
+    }
+    if (result.bombHit) {
+      this.impacts.push({ ...result.bombHit, kind: "bomb", life: 1 });
+    }
     this.flash = Math.max(0, this.flash - deltaMilliseconds / 180);
+    this.impacts = this.impacts
+      .map((impact) => ({ ...impact, life: impact.life - deltaMilliseconds / 500 }))
+      .filter((impact) => impact.life > 0);
 
+    this.drawTargets();
     this.drawCannon();
     this.drawProjectile();
     this.drawPreview();
@@ -94,6 +120,8 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "retry":
         this.simulation.reset();
+        this.impacts = [];
+        this.lastPreviewKey = "";
         this.setPaused(false);
         break;
     }
@@ -169,6 +197,45 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  private drawTargets(): void {
+    const g = this.targetGraphics;
+    g.clear();
+
+    for (const enemy of this.simulation.state.enemies) {
+      if (!enemy.alive) continue;
+      const { x, y } = enemy.position;
+      const float = Math.sin(this.simulation.state.elapsedSeconds * 3 + x) * 4;
+      g.fillStyle(0x000000, 0.2);
+      g.fillEllipse(x + 5, y + float + 25, 48, 16);
+      g.fillStyle(0x62c2c7, 1);
+      g.fillCircle(x, y + float, enemy.radius);
+      g.fillStyle(0xb7f1e5, 1);
+      g.fillCircle(x - 8, y + float - 7, 8);
+      g.fillStyle(0x302b55, 1);
+      g.fillCircle(x - 8, y + float - 7, 3);
+      g.fillCircle(x + 8, y + float - 7, 3);
+      g.lineStyle(3, 0x302b55, 1);
+      g.lineBetween(x - 6, y + float + 8, x + 6, y + float + 8);
+    }
+
+    for (const bomb of this.simulation.state.bombs) {
+      if (bomb.triggered) continue;
+      const { x, y } = bomb.position;
+      const pulse = 1 + Math.sin(this.simulation.state.elapsedSeconds * 8) * 0.08;
+      g.fillStyle(0x0b0912, 1);
+      g.fillCircle(x, y, bomb.radius * pulse);
+      g.lineStyle(5, 0xff5d5d, 0.9);
+      g.strokeCircle(x, y, (bomb.radius + 7) * pulse);
+      g.lineStyle(4, 0xffcf70, 1);
+      g.lineBetween(x + 10, y - 24, x + 21, y - 42);
+      g.fillStyle(0xff5d5d, 1);
+      g.fillCircle(x + 23, y - 45, 6);
+      g.lineStyle(3, 0xf4d7a1, 0.75);
+      g.lineBetween(x - 10, y - 10, x + 10, y + 10);
+      g.lineBetween(x + 10, y - 10, x - 10, y + 10);
+    }
+  }
+
   private drawProjectile(): void {
     const g = this.projectileGraphics;
     const projectile = this.simulation.state.projectile;
@@ -194,13 +261,19 @@ export class PlayScene extends Phaser.Scene {
     const speed = Math.round(
       chargeToSpeed(this.simulation.state.chargeSeconds, simulationConfig) / 5,
     ) * 5;
-    const key = `${angle}:${speed}:${this.debugVisible}:${Boolean(this.simulation.state.projectile)}`;
+    const key = `${angle}:${speed}:${this.debugVisible}:${Boolean(this.simulation.state.projectile)}:${this.simulation.state.status}`;
     if (key === this.lastPreviewKey) return;
     this.lastPreviewKey = key;
 
     const g = this.trajectoryGraphics;
     g.clear();
-    if (!this.debugVisible || this.simulation.state.projectile) return;
+    if (
+      !this.debugVisible ||
+      this.simulation.state.projectile ||
+      this.simulation.state.status !== "playing"
+    ) {
+      return;
+    }
 
     const points = this.simulation.getPreview();
     for (let i = 0; i < points.length; i += 1) {
@@ -226,10 +299,21 @@ export class PlayScene extends Phaser.Scene {
   private drawFx(): void {
     const g = this.fxGraphics;
     g.clear();
-    if (this.flash <= 0 || !this.simulation.state.projectile) return;
-    const { x, y } = this.simulation.state.projectile.position;
-    g.lineStyle(7, 0xffb84d, this.flash);
-    g.strokeCircle(x, y, 24 + (1 - this.flash) * 36);
+    if (this.flash > 0 && this.simulation.state.projectile) {
+      const { x, y } = this.simulation.state.projectile.position;
+      g.lineStyle(7, 0xffb84d, this.flash);
+      g.strokeCircle(x, y, 24 + (1 - this.flash) * 36);
+    }
+    for (const impact of this.impacts) {
+      const color = impact.kind === "bomb" ? 0xff5d5d : 0xb7f1e5;
+      const radius = impact.kind === "bomb" ? 90 : 45;
+      g.lineStyle(8, color, impact.life);
+      g.strokeCircle(impact.x, impact.y, 12 + (1 - impact.life) * radius);
+      if (impact.kind === "bomb") {
+        g.fillStyle(0xffcf70, impact.life * 0.35);
+        g.fillCircle(impact.x, impact.y, 60 * impact.life);
+      }
+    }
   }
 
   private emitHud(): void {
@@ -244,6 +328,12 @@ export class PlayScene extends Phaser.Scene {
       charging: this.simulation.state.charging,
       charge: this.simulation.getChargeProgress(),
       projectileActive: Boolean(this.simulation.state.projectile),
+      score: this.simulation.state.score,
+      ammo: this.simulation.state.ammo,
+      enemies: this.simulation.state.enemies.filter((enemy) => enemy.alive).length,
+      combo: this.simulation.state.shotCombo,
+      status: this.simulation.state.status,
+      targetScore: this.simulation.getTargetScore(),
     };
     window.dispatchEvent(new CustomEvent<HudDetail>("odango-hud", { detail }));
   }
