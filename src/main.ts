@@ -40,6 +40,12 @@ const resultTitle = document.querySelector<HTMLElement>("#result-title");
 const resultScore = document.querySelector<HTMLElement>("#result-score");
 const resultRank = document.querySelector<HTMLElement>("#result-rank");
 const resultRetryButton = document.querySelector<HTMLButtonElement>("#result-retry-button");
+const resultNextButton = document.querySelector<HTMLButtonElement>("#result-next-button");
+const previousStageButton = document.querySelector<HTMLButtonElement>("#previous-stage");
+const nextStageButton = document.querySelector<HTMLButtonElement>("#next-stage");
+const stageCounter = document.querySelector<HTMLElement>("#stage-counter");
+const stageName = document.querySelector<HTMLElement>("#stage-name");
+const stageObjective = document.querySelector<HTMLElement>("#stage-objective");
 
 interface HudDetail {
   angle: number;
@@ -54,6 +60,10 @@ interface HudDetail {
   status: "playing" | "won" | "lost";
   targetScore: number;
   shotResult: "complete" | "incomplete" | null;
+  stageIndex: number;
+  stageCount: number;
+  stageName: string;
+  stageObjective: string;
 }
 
 window.addEventListener("odango-hud", (event) => {
@@ -62,6 +72,11 @@ window.addEventListener("odango-hud", (event) => {
   if (ballValue) ballValue.textContent = `${detail.balls}`;
   if (ammoValue) ammoValue.textContent = `${detail.skewers}`;
   if (skewerValue) skewerValue.textContent = `${detail.attachedBalls} / 3`;
+  if (stageCounter) {
+    stageCounter.textContent = `STAGE ${detail.stageIndex + 1} / ${detail.stageCount}`;
+  }
+  if (stageName) stageName.textContent = detail.stageName;
+  if (stageObjective) stageObjective.textContent = detail.stageObjective;
   if (chargeFill) chargeFill.style.setProperty("--charge", `${detail.charge * 100}%`);
   if (fireButton) {
     fireButton.classList.toggle("is-charging", detail.charging);
@@ -115,6 +130,9 @@ pauseButton?.addEventListener("click", () => sendGameCommand("pause"));
 resumeButton?.addEventListener("click", () => sendGameCommand("resume"));
 retryButton?.addEventListener("click", () => sendGameCommand("retry"));
 resultRetryButton?.addEventListener("click", () => sendGameCommand("retry"));
+resultNextButton?.addEventListener("click", () => sendGameCommand("next-stage"));
+previousStageButton?.addEventListener("click", () => sendGameCommand("previous-stage"));
+nextStageButton?.addEventListener("click", () => sendGameCommand("next-stage"));
 dismissHelp?.addEventListener("click", () => helpCard?.classList.add("is-dismissed"));
 
 window.addEventListener("blur", () => sendGameCommand("pause"));

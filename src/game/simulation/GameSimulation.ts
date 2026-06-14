@@ -8,6 +8,7 @@ import {
   stepSkewer,
 } from "./physics";
 import type {
+  SimulationConfig,
   SimulationState,
   SimulationUpdate,
   StageDefinition,
@@ -19,8 +20,10 @@ export class GameSimulation {
   readonly state: SimulationState;
 
   private accumulator = 0;
+  private readonly config: SimulationConfig;
 
   constructor(private readonly stage: StageDefinition = coreRulesStage) {
+    this.config = { ...simulationConfig, ...stage.simulation };
     this.state = this.createInitialState();
   }
 
@@ -39,26 +42,27 @@ export class GameSimulation {
     this.state.elapsedSeconds += deltaSeconds;
     if (this.state.charging) {
       this.state.chargeSeconds = Math.min(
-        simulationConfig.maxChargeSeconds,
+        this.config.maxChargeSeconds,
         this.state.chargeSeconds + deltaSeconds,
       );
     }
 
     this.accumulator += Math.min(deltaSeconds, 0.1);
-    while (this.accumulator >= simulationConfig.fixedStepSeconds) {
+    while (this.accumulator >= this.config.fixedStepSeconds) {
       const skewer = this.state.skewer;
       if (skewer?.active) {
         const start = { ...skewer.position };
         const wallHit = stepSkewer(
           skewer,
-          simulationConfig.fixedStepSeconds,
+          this.config.fixedStepSeconds,
           arena,
-          simulationConfig,
+          this.config,
+          this.stage.obstacles,
         );
         this.processTargets(start, skewer.position, result);
         if (wallHit && !result.bombHit) result.wallHit = wallHit;
       }
-      this.accumulator -= simulationConfig.fixedStepSeconds;
+      this.accumulator -= this.config.fixedStepSeconds;
     }
 
     if (this.state.skewer && !this.state.skewer.active) {
@@ -112,7 +116,7 @@ export class GameSimulation {
   releaseCharge(): boolean {
     if (!this.state.charging || this.state.paused) return false;
     const angle = this.state.cannonAngle;
-    const speed = chargeToSpeed(this.state.chargeSeconds, simulationConfig);
+    const speed = chargeToSpeed(this.state.chargeSeconds, this.config);
     this.state.lastLaunchSpeed = speed;
     this.state.skewer = createSkewer(cannon, angle, speed);
     this.state.skewers -= 1;
@@ -121,21 +125,31 @@ export class GameSimulation {
   }
 
   getChargeProgress(): number {
-    return Math.min(1, this.state.chargeSeconds / simulationConfig.maxChargeSeconds);
+    return Math.min(1, this.state.chargeSeconds / this.config.maxChargeSeconds);
   }
 
   getTargetScore(): number {
     return this.stage.targetScore;
   }
 
+  getStage(): StageDefinition {
+    return this.stage;
+  }
+
+  getConfig(): SimulationConfig {
+    return this.config;
+  }
+
   getPreview(): TrajectoryPoint[] {
-    const speed = chargeToSpeed(this.state.chargeSeconds, simulationConfig);
+    const speed = chargeToSpeed(this.state.chargeSeconds, this.config);
     return predictTrajectory(
       cannon,
       this.state.cannonAngle,
       speed,
       arena,
-      simulationConfig,
+      this.config,
+      8,
+      this.stage.obstacles,
     );
   }
 
@@ -159,7 +173,7 @@ export class GameSimulation {
       charging: false,
       paused: false,
       skewer: null,
-      lastLaunchSpeed: simulationConfig.minLaunchSpeed,
+      lastLaunchSpeed: this.config.minLaunchSpeed,
       skewers: this.stage.skewers,
       score: 0,
       status: "playing",
@@ -194,14 +208,14 @@ export class GameSimulation {
       position: Vec2;
     }> = [];
 
-    if (skewer.attachedBallIds.length < simulationConfig.maxBallsPerSkewer) {
+    if (skewer.attachedBallIds.length < this.config.maxBallsPerSkewer) {
       for (const ball of this.state.balls) {
         if (!ball.available) continue;
         const time = segmentCircleIntersection(
           start,
           end,
           ball.position,
-          ball.radius + simulationConfig.tipRadius,
+          ball.radius + this.config.tipRadius,
         );
         if (time !== null) {
           hits.push({ time, kind: "ball", id: ball.id, position: ball.position });
@@ -231,7 +245,7 @@ export class GameSimulation {
         return;
       }
 
-      if (skewer.attachedBallIds.length >= simulationConfig.maxBallsPerSkewer) {
+      if (skewer.attachedBallIds.length >= this.config.maxBallsPerSkewer) {
         continue;
       }
       const ball = this.state.balls.find((candidate) => candidate.id === hit.id);
@@ -248,7 +262,8 @@ export class GameSimulation {
 
     const completed =
       Boolean(result.wallHit) &&
-      skewer.attachedBallIds.length === simulationConfig.maxBallsPerSkewer;
+      skewer.attachedBallIds.length === this.config.maxBallsPerSkewer &&
+      this.isScoringWall(result.wallHit?.wallId);
     if (completed) {
       this.state.score += 600;
       return true;
@@ -260,6 +275,17 @@ export class GameSimulation {
     }
     result.restoredBalls = skewer.attachedBallIds.length > 0;
     return false;
+  }
+
+  private isScoringWall(wallId: string | undefined): boolean {
+    if (!wallId) return false;
+    const scoringWallIds = this.stage.scoringWallIds ?? [
+      "left",
+      "right",
+      "top",
+      "bottom",
+    ];
+    return scoringWallIds.includes(wallId);
   }
 
   private getBombHitTime(
@@ -277,11 +303,11 @@ export class GameSimulation {
       y: skewer.velocity.y / speed,
     };
     const candidates: number[] = [];
-    const sampleSpacing = simulationConfig.tipRadius * 2;
+    const sampleSpacing = this.config.tipRadius * 2;
 
     for (
       let offset = 0;
-      offset <= simulationConfig.skewerLength;
+      offset <= this.config.skewerLength;
       offset += sampleSpacing
     ) {
       const time = segmentCircleIntersection(
@@ -294,13 +320,13 @@ export class GameSimulation {
           y: end.y - forward.y * offset,
         },
         bombPosition,
-        bombRadius + simulationConfig.tipRadius,
+        bombRadius + this.config.tipRadius,
       );
       if (time !== null) candidates.push(time);
     }
 
     skewer.attachedBallIds.forEach((_ballId, index) => {
-      const offset = 24 + index * simulationConfig.ballSpacing;
+      const offset = 24 + index * this.config.ballSpacing;
       const time = segmentCircleIntersection(
         {
           x: start.x - forward.x * offset,

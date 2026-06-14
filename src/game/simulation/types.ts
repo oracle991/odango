@@ -77,11 +77,23 @@ export interface TrajectoryPoint extends Vec2 {
   wall: boolean;
 }
 
+export interface WallHit extends Vec2 {
+  wallId: string;
+}
+
 export interface TargetDefinition {
   id: string;
   x: number;
   y: number;
   radius: number;
+}
+
+export interface ObstacleDefinition {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface BallDefinition extends TargetDefinition {
@@ -90,16 +102,23 @@ export interface BallDefinition extends TargetDefinition {
 
 export interface StageDefinition {
   id: string;
+  name?: string;
+  objective?: string;
   skewers: number;
   targetScore: number;
   balls: BallDefinition[];
   bombs: TargetDefinition[];
+  obstacles?: ObstacleDefinition[];
+  scoringWallIds?: string[];
+  simulation?: Partial<
+    Pick<SimulationConfig, "gravity" | "minLaunchSpeed" | "maxLaunchSpeed">
+  >;
 }
 
 export interface SimulationUpdate {
   ballHits: Vec2[];
   bombHit: Vec2 | null;
-  wallHit: Vec2 | null;
+  wallHit: WallHit | null;
   shotEnded: boolean;
   completedSkewer: boolean;
   restoredBalls: boolean;

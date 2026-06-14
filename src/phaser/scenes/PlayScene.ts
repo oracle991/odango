@@ -1,9 +1,10 @@
 import Phaser from "phaser";
-import { arena, cannon, DESIGN_HEIGHT, DESIGN_WIDTH, simulationConfig } from "../../game/config";
+import { arena, cannon, DESIGN_HEIGHT, DESIGN_WIDTH } from "../../game/config";
 import { gameEvents, type GameCommand } from "../../game/input/gameEvents";
 import { chargeToSpeed, muzzlePosition } from "../../game/simulation/physics";
 import { GameSimulation } from "../../game/simulation/GameSimulation";
 import type { BallState } from "../../game/simulation/types";
+import { validationStages } from "../../game/stage";
 
 interface HudDetail {
   angle: number;
@@ -18,6 +19,10 @@ interface HudDetail {
   status: "playing" | "won" | "lost";
   targetScore: number;
   shotResult: "complete" | "incomplete" | null;
+  stageIndex: number;
+  stageCount: number;
+  stageName: string;
+  stageObjective: string;
 }
 
 interface ImpactFx {
@@ -34,7 +39,8 @@ const ballColors: Record<BallState["color"], number> = {
 };
 
 export class PlayScene extends Phaser.Scene {
-  private readonly simulation = new GameSimulation();
+  private simulation = new GameSimulation(validationStages[0]);
+  private stageIndex = 0;
   private worldGraphics!: Phaser.GameObjects.Graphics;
   private targetGraphics!: Phaser.GameObjects.Graphics;
   private trajectoryGraphics!: Phaser.GameObjects.Graphics;
@@ -69,6 +75,8 @@ export class PlayScene extends Phaser.Scene {
     this.spaceKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     keyboard.on("keydown-ESC", () => this.handleCommand("pause"));
     keyboard.on("keydown-R", () => this.handleCommand("retry"));
+    keyboard.on("keydown-P", () => this.handleCommand("previous-stage"));
+    keyboard.on("keydown-N", () => this.handleCommand("next-stage"));
     keyboard.on("keydown-D", () => {
       this.debugVisible = !this.debugVisible;
       this.lastPreviewKey = "";
@@ -148,14 +156,31 @@ export class PlayScene extends Phaser.Scene {
         if (this.simulation.state.paused) this.setPaused(false);
         break;
       case "retry":
-        this.simulation.reset();
-        this.impacts = [];
-        this.lastShotResult = null;
-        this.shotResultLife = 0;
-        this.lastPreviewKey = "";
-        this.setPaused(false);
+        this.resetStage();
+        break;
+      case "previous-stage":
+        this.loadStage(this.stageIndex - 1);
+        break;
+      case "next-stage":
+        this.loadStage(this.stageIndex + 1);
         break;
     }
+  }
+
+  private loadStage(index: number): void {
+    this.stageIndex = Phaser.Math.Wrap(index, 0, validationStages.length);
+    this.simulation = new GameSimulation(validationStages[this.stageIndex]);
+    this.resetStage();
+  }
+
+  private resetStage(): void {
+    this.simulation.reset();
+    this.impacts = [];
+    this.lastShotResult = null;
+    this.shotResultLife = 0;
+    this.lastPreviewKey = "";
+    window.dispatchEvent(new CustomEvent("odango-pause", { detail: false }));
+    this.drawWorld();
   }
 
   private setPaused(paused: boolean): void {
@@ -212,6 +237,25 @@ export class PlayScene extends Phaser.Scene {
     }
     for (let y = arena.top + 80; y < arena.bottom; y += 80) {
       g.lineBetween(arena.left, y, arena.right, y);
+    }
+
+    for (const obstacle of this.simulation.getStage().obstacles ?? []) {
+      g.fillStyle(0x4a2d21, 1);
+      g.fillRoundedRect(
+        obstacle.x,
+        obstacle.y,
+        obstacle.width,
+        obstacle.height,
+        8,
+      );
+      g.lineStyle(5, 0xf4d7a1, 0.8);
+      g.strokeRoundedRect(
+        obstacle.x,
+        obstacle.y,
+        obstacle.width,
+        obstacle.height,
+        8,
+      );
     }
   }
 
@@ -309,14 +353,15 @@ export class PlayScene extends Phaser.Scene {
   private drawSkewer(): void {
     const g = this.skewerGraphics;
     const skewer = this.simulation.state.skewer;
+    const config = this.simulation.getConfig();
     g.clear();
     if (!skewer) return;
 
     const length = Math.hypot(skewer.velocity.x, skewer.velocity.y) || 1;
     const forwardX = skewer.velocity.x / length;
     const forwardY = skewer.velocity.y / length;
-    const backX = skewer.position.x - forwardX * simulationConfig.skewerLength;
-    const backY = skewer.position.y - forwardY * simulationConfig.skewerLength;
+    const backX = skewer.position.x - forwardX * config.skewerLength;
+    const backY = skewer.position.y - forwardY * config.skewerLength;
 
     g.lineStyle(9, 0x4a2d21, 0.25);
     g.lineBetween(backX + 5, backY + 6, skewer.position.x + 5, skewer.position.y + 6);
@@ -333,7 +378,7 @@ export class PlayScene extends Phaser.Scene {
     skewer.attachedBallIds.forEach((ballId, index) => {
       const ball = this.simulation.state.balls.find((candidate) => candidate.id === ballId);
       if (!ball) return;
-      const distance = 24 + index * simulationConfig.ballSpacing;
+      const distance = 24 + index * config.ballSpacing;
       const x = skewer.position.x - forwardX * distance;
       const y = skewer.position.y - forwardY * distance;
       g.fillStyle(0x000000, 0.2);
@@ -345,7 +390,7 @@ export class PlayScene extends Phaser.Scene {
     });
 
     const indicatorY = skewer.position.y - 42;
-    for (let i = 0; i < simulationConfig.maxBallsPerSkewer; i += 1) {
+    for (let i = 0; i < config.maxBallsPerSkewer; i += 1) {
       const x = skewer.position.x + (i - 1) * 18;
       const filled = i < skewer.attachedBallIds.length;
       g.fillStyle(filled ? 0xffcf70 : 0x302b55, filled ? 1 : 0.75);
@@ -356,9 +401,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private drawPreview(): void {
+    const config = this.simulation.getConfig();
     const angle = Math.round(this.simulation.getCurrentAngle() * 2) / 2;
     const speed = Math.round(
-      chargeToSpeed(this.simulation.state.chargeSeconds, simulationConfig) / 5,
+      chargeToSpeed(this.simulation.state.chargeSeconds, config) / 5,
     ) * 5;
     const key = `${angle}:${speed}:${this.debugVisible}:${Boolean(this.simulation.state.skewer)}:${this.simulation.state.status}`;
     if (key === this.lastPreviewKey) return;
@@ -418,8 +464,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private emitHud(): void {
+    const config = this.simulation.getConfig();
+    const stage = this.simulation.getStage();
     const speed = this.simulation.state.charging
-      ? chargeToSpeed(this.simulation.state.chargeSeconds, simulationConfig)
+      ? chargeToSpeed(this.simulation.state.chargeSeconds, config)
       : this.simulation.state.lastLaunchSpeed;
     const detail: HudDetail = {
       angle: this.simulation.getCurrentAngle(),
@@ -434,6 +482,10 @@ export class PlayScene extends Phaser.Scene {
       status: this.simulation.state.status,
       targetScore: this.simulation.getTargetScore(),
       shotResult: this.lastShotResult,
+      stageIndex: this.stageIndex,
+      stageCount: validationStages.length,
+      stageName: stage.name ?? stage.id,
+      stageObjective: stage.objective ?? "",
     };
     window.dispatchEvent(new CustomEvent<HudDetail>("odango-hud", { detail }));
   }

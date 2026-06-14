@@ -3,7 +3,9 @@ export type GameCommand =
   | "charge-release"
   | "pause"
   | "resume"
-  | "retry";
+  | "retry"
+  | "previous-stage"
+  | "next-stage";
 
 export const gameEvents = new EventTarget();
 

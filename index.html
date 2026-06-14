@@ -11,7 +11,7 @@
       <section class="game-shell" aria-label="おだんご重力砲台">
         <header class="hud">
           <div>
-            <p class="eyebrow">M2R THREE-BALL CORE</p>
+            <p class="eyebrow">M3 LEVEL VALIDATION</p>
             <h1>おだんご重力砲台</h1>
           </div>
           <div class="readouts" aria-live="polite">
@@ -24,6 +24,16 @@
         </header>
 
         <div id="game" class="game-canvas"></div>
+
+        <nav class="stage-nav" aria-label="検証ステージ">
+          <button id="previous-stage" type="button" aria-label="前のステージ">←</button>
+          <div>
+            <small id="stage-counter">STAGE 1 / 5</small>
+            <b id="stage-name">一、まっすぐ三連</b>
+            <span id="stage-objective">三個を刺して壁へ届けよう</span>
+          </div>
+          <button id="next-stage" type="button" aria-label="次のステージ">→</button>
+        </nav>
 
         <aside id="help-card" class="help-card">
           <p class="eyebrow">HOW TO FIRE</p>
@@ -46,6 +56,7 @@
             <span><small>RANK</small><b id="result-rank">B</b></span>
           </div>
           <button id="result-retry-button" type="button">もう一度あそぶ</button>
+          <button id="result-next-button" class="secondary" type="button">次の検証ステージ</button>
         </div>
 
         <footer class="controls">
