@@ -21,30 +21,32 @@ export interface CannonConfig {
 
 export interface SimulationConfig {
   gravity: number;
-  radius: number;
-  restitution: number;
+  tipRadius: number;
+  skewerLength: number;
+  ballSpacing: number;
+  maxBallsPerSkewer: number;
   minChargeSeconds: number;
   maxChargeSeconds: number;
   minLaunchSpeed: number;
   maxLaunchSpeed: number;
-  maxBounces: number;
   maxFlightSeconds: number;
   fixedStepSeconds: number;
 }
 
-export interface ProjectileState {
+export interface SkewerState {
   position: Vec2;
   velocity: Vec2;
-  bounces: number;
   ageSeconds: number;
   active: boolean;
+  attachedBallIds: string[];
 }
 
-export interface EnemyState {
+export interface BallState {
   id: string;
   position: Vec2;
   radius: number;
-  alive: boolean;
+  available: boolean;
+  color: "white" | "pink" | "green";
 }
 
 export interface BombState {
@@ -62,18 +64,17 @@ export interface SimulationState {
   chargeSeconds: number;
   charging: boolean;
   paused: boolean;
-  projectile: ProjectileState | null;
+  skewer: SkewerState | null;
   lastLaunchSpeed: number;
-  ammo: number;
+  skewers: number;
   score: number;
   status: StageStatus;
-  shotCombo: number;
-  enemies: EnemyState[];
+  balls: BallState[];
   bombs: BombState[];
 }
 
 export interface TrajectoryPoint extends Vec2 {
-  bounce: boolean;
+  wall: boolean;
 }
 
 export interface TargetDefinition {
@@ -83,18 +84,24 @@ export interface TargetDefinition {
   radius: number;
 }
 
+export interface BallDefinition extends TargetDefinition {
+  color: BallState["color"];
+}
+
 export interface StageDefinition {
   id: string;
-  ammo: number;
+  skewers: number;
   targetScore: number;
-  enemies: TargetDefinition[];
+  balls: BallDefinition[];
   bombs: TargetDefinition[];
 }
 
 export interface SimulationUpdate {
-  bounced: boolean;
-  enemyHits: Vec2[];
+  ballHits: Vec2[];
   bombHit: Vec2 | null;
+  wallHit: Vec2 | null;
   shotEnded: boolean;
+  completedSkewer: boolean;
+  restoredBalls: boolean;
   statusChanged: boolean;
 }

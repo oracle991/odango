@@ -1,105 +1,168 @@
 import { describe, expect, it } from "vitest";
+import { arena } from "../config";
 import type { StageDefinition } from "./types";
 import { GameSimulation } from "./GameSimulation";
 
 const createStage = (
-  enemies: StageDefinition["enemies"],
+  balls: StageDefinition["balls"],
   bombs: StageDefinition["bombs"] = [],
-  ammo = 3,
+  skewers = 3,
 ): StageDefinition => ({
   id: "test",
-  ammo,
+  skewers,
   targetScore: 1000,
-  enemies,
+  balls,
   bombs,
 });
 
-const fireTestProjectile = (simulation: GameSimulation): void => {
-  simulation.state.projectile = {
-    position: { x: 100, y: 200 },
+const ball = (
+  id: string,
+  x: number,
+  y = 200,
+): StageDefinition["balls"][number] => ({
+  id,
+  x,
+  y,
+  radius: 2,
+  color: "white",
+});
+
+const fireTestSkewer = (
+  simulation: GameSimulation,
+  x = arena.right - 92,
+): void => {
+  simulation.state.skewer = {
+    position: { x, y: 200 },
     velocity: { x: 12000, y: 0 },
-    bounces: 0,
     ageSeconds: 0,
     active: true,
+    attachedBallIds: [],
   };
 };
 
-describe("core game rules", () => {
-  it("hits every enemy crossed in one fixed step without slowing the projectile", () => {
+describe("three-ball core rules", () => {
+  it("collects balls in contact order and never attaches more than three", () => {
     const simulation = new GameSimulation(
       createStage([
-        { id: "a", x: 145, y: 200, radius: 10 },
-        { id: "b", x: 185, y: 200, radius: 10 },
+        ball("a", arena.right - 72),
+        ball("b", arena.right - 50),
+        ball("c", arena.right - 28),
+        ball("d", arena.right - 12),
       ]),
     );
-    fireTestProjectile(simulation);
+    fireTestSkewer(simulation);
 
     const result = simulation.update(1 / 120);
 
-    expect(result.enemyHits).toHaveLength(2);
-    expect(simulation.state.enemies.every((enemy) => !enemy.alive)).toBe(true);
-    expect(simulation.state.projectile?.velocity.x).toBe(12000);
-    expect(simulation.state.shotCombo).toBe(2);
-    expect(simulation.state.score).toBe(1300);
+    expect(result.ballHits).toHaveLength(3);
+    expect(result.completedSkewer).toBe(true);
+    expect(simulation.state.balls.map((candidate) => candidate.available)).toEqual([
+      false,
+      false,
+      false,
+      true,
+    ]);
+    expect(simulation.state.score).toBe(600);
   });
 
-  it("adds a reflection bonus to kills after the second bounce", () => {
+  it("awards points only when three balls reach a wall", () => {
     const simulation = new GameSimulation(
-      createStage([{ id: "a", x: 145, y: 200, radius: 10 }]),
+      createStage([
+        ball("a", arena.right - 72),
+        ball("b", arena.right - 50),
+        ball("c", arena.right - 28),
+        ball("spare", 400, 400),
+      ]),
     );
-    fireTestProjectile(simulation);
-    if (simulation.state.projectile) simulation.state.projectile.bounces = 2;
-
-    simulation.update(1 / 120);
-
-    expect(simulation.state.score).toBe(1200);
-  });
-
-  it("stops at a bomb and applies both penalties without a negative score", () => {
-    const simulation = new GameSimulation(
-      createStage(
-        [{ id: "enemy", x: 210, y: 200, radius: 10 }],
-        [{ id: "bomb", x: 150, y: 200, radius: 10 }],
-      ),
-    );
-    simulation.state.ammo = 2;
-    simulation.state.score = 300;
-    fireTestProjectile(simulation);
+    fireTestSkewer(simulation);
 
     const result = simulation.update(1 / 120);
 
-    expect(result.bombHit).toEqual({ x: 150, y: 200 });
-    expect(simulation.state.ammo).toBe(1);
-    expect(simulation.state.score).toBe(0);
-    expect(simulation.state.enemies[0].alive).toBe(true);
-    expect(simulation.state.projectile).toBeNull();
-  });
-
-  it("awards one-shot and remaining-ammo bonuses when the final shot ends", () => {
-    const simulation = new GameSimulation(
-      createStage([{ id: "enemy", x: 145, y: 200, radius: 10 }], [], 4),
-    );
-    fireTestProjectile(simulation);
-    simulation.update(1 / 120);
+    expect(result.wallHit).not.toBeNull();
+    expect(result.completedSkewer).toBe(true);
+    expect(simulation.state.score).toBe(600);
     expect(simulation.state.status).toBe("playing");
-    expect(simulation.state.score).toBe(1100);
+  });
 
-    if (simulation.state.projectile) simulation.state.projectile.active = false;
+  it("restores one or two collected balls when the skewer ends incomplete", () => {
+    const simulation = new GameSimulation(
+      createStage([
+        ball("a", arena.right - 72),
+        ball("b", arena.right - 50),
+        ball("c", 400, 400),
+      ]),
+    );
+    fireTestSkewer(simulation);
+
+    const result = simulation.update(1 / 120);
+
+    expect(result.completedSkewer).toBe(false);
+    expect(result.restoredBalls).toBe(true);
+    expect(simulation.state.balls.every((candidate) => candidate.available)).toBe(true);
+    expect(simulation.state.score).toBe(0);
+  });
+
+  it("completes the stage and adds final and remaining-skewer bonuses", () => {
+    const simulation = new GameSimulation(
+      createStage([
+        ball("a", arena.right - 72),
+        ball("b", arena.right - 50),
+        ball("c", arena.right - 28),
+      ], [], 2),
+    );
+    simulation.state.skewers = 1;
+    fireTestSkewer(simulation);
+
     const result = simulation.update(1 / 120);
 
     expect(result.statusChanged).toBe(true);
     expect(simulation.state.status).toBe("won");
-    expect(simulation.state.score).toBe(2300);
+    expect(simulation.state.score).toBe(1900);
   });
 
-  it("fails after the final available shot ends with enemies remaining", () => {
+  it("stops at a bomb, restores balls, and applies both penalties", () => {
     const simulation = new GameSimulation(
-      createStage([{ id: "enemy", x: 500, y: 500, radius: 10 }], [], 1),
+      createStage(
+        [ball("a", arena.right - 72), ball("b", 400, 400), ball("c", 500, 400)],
+        [{ id: "bomb", x: arena.right - 50, y: 200, radius: 2 }],
+      ),
+    );
+    simulation.state.skewers = 2;
+    simulation.state.score = 300;
+    fireTestSkewer(simulation);
+
+    const result = simulation.update(1 / 120);
+
+    expect(result.bombHit).toEqual({ x: arena.right - 50, y: 200 });
+    expect(result.restoredBalls).toBe(true);
+    expect(simulation.state.skewers).toBe(1);
+    expect(simulation.state.score).toBe(0);
+    expect(simulation.state.balls[0].available).toBe(true);
+  });
+
+  it("triggers a bomb touched by the skewer shaft", () => {
+    const simulation = new GameSimulation(
+      createStage(
+        [ball("a", 400, 400), ball("b", 500, 400), ball("c", 600, 400)],
+        [{ id: "bomb", x: arena.right - 105, y: 200, radius: 3 }],
+      ),
+    );
+    fireTestSkewer(simulation);
+
+    const result = simulation.update(1 / 120);
+
+    expect(result.bombHit).toEqual({ x: arena.right - 105, y: 200 });
+    expect(simulation.state.bombs[0].triggered).toBe(true);
+  });
+
+  it("fails after the final available skewer ends with balls remaining", () => {
+    const simulation = new GameSimulation(
+      createStage([ball("a", 400, 400), ball("b", 500, 400), ball("c", 600, 400)], [], 1),
     );
     simulation.beginCharge();
     expect(simulation.releaseCharge()).toBe(true);
-    expect(simulation.state.ammo).toBe(0);
-    if (simulation.state.projectile) simulation.state.projectile.active = false;
+    expect(simulation.state.skewers).toBe(0);
+    if (simulation.state.skewer) simulation.state.skewer.active = false;
 
     simulation.update(1 / 120);
 
@@ -109,22 +172,22 @@ describe("core game rules", () => {
   it("restores the complete stage on retry", () => {
     const simulation = new GameSimulation(
       createStage(
-        [{ id: "enemy", x: 145, y: 200, radius: 10 }],
-        [{ id: "bomb", x: 400, y: 200, radius: 10 }],
+        [ball("a", 400), ball("b", 500), ball("c", 600)],
+        [{ id: "bomb", x: 700, y: 200, radius: 10 }],
         2,
       ),
     );
     simulation.state.score = 900;
-    simulation.state.ammo = 0;
-    simulation.state.enemies[0].alive = false;
+    simulation.state.skewers = 0;
+    simulation.state.balls[0].available = false;
     simulation.state.bombs[0].triggered = true;
 
     simulation.reset();
 
     expect(simulation.state.score).toBe(0);
-    expect(simulation.state.ammo).toBe(2);
+    expect(simulation.state.skewers).toBe(2);
     expect(simulation.state.status).toBe("playing");
-    expect(simulation.state.enemies[0].alive).toBe(true);
+    expect(simulation.state.balls.every((candidate) => candidate.available)).toBe(true);
     expect(simulation.state.bombs[0].triggered).toBe(false);
   });
 });

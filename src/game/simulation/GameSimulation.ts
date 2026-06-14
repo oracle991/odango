@@ -2,10 +2,10 @@ import { arena, cannon, simulationConfig } from "../config";
 import { coreRulesStage } from "../stage";
 import {
   chargeToSpeed,
-  createProjectile,
+  createSkewer,
   predictTrajectory,
   segmentCircleIntersection,
-  stepProjectile,
+  stepSkewer,
 } from "./physics";
 import type {
   SimulationState,
@@ -19,19 +19,19 @@ export class GameSimulation {
   readonly state: SimulationState;
 
   private accumulator = 0;
-  private readonly totalEnemies: number;
 
   constructor(private readonly stage: StageDefinition = coreRulesStage) {
-    this.totalEnemies = stage.enemies.length;
     this.state = this.createInitialState();
   }
 
   update(deltaSeconds: number): SimulationUpdate {
     const result: SimulationUpdate = {
-      bounced: false,
-      enemyHits: [],
+      ballHits: [],
       bombHit: null,
+      wallHit: null,
       shotEnded: false,
+      completedSkewer: false,
+      restoredBalls: false,
       statusChanged: false,
     };
     if (this.state.paused || this.state.status !== "playing") return result;
@@ -46,24 +46,26 @@ export class GameSimulation {
 
     this.accumulator += Math.min(deltaSeconds, 0.1);
     while (this.accumulator >= simulationConfig.fixedStepSeconds) {
-      if (this.state.projectile?.active) {
-        const start = { ...this.state.projectile.position };
-        const bounced = stepProjectile(
-          this.state.projectile,
+      const skewer = this.state.skewer;
+      if (skewer?.active) {
+        const start = { ...skewer.position };
+        const wallHit = stepSkewer(
+          skewer,
           simulationConfig.fixedStepSeconds,
           arena,
           simulationConfig,
         );
-        result.bounced = bounced || result.bounced;
-        this.processTargets(start, this.state.projectile.position, result);
+        this.processTargets(start, skewer.position, result);
+        if (wallHit && !result.bombHit) result.wallHit = wallHit;
       }
       this.accumulator -= simulationConfig.fixedStepSeconds;
     }
 
-    if (this.state.projectile && !this.state.projectile.active) {
-      this.state.projectile = null;
+    if (this.state.skewer && !this.state.skewer.active) {
       result.shotEnded = true;
-      result.statusChanged = this.finishShot();
+      result.completedSkewer = this.finishSkewer(result);
+      this.state.skewer = null;
+      result.statusChanged = this.finishStage();
     }
     return result;
   }
@@ -80,9 +82,9 @@ export class GameSimulation {
     if (
       this.state.paused ||
       this.state.status !== "playing" ||
-      this.state.ammo <= 0 ||
+      this.state.skewers <= 0 ||
       this.state.charging ||
-      this.state.projectile
+      this.state.skewer
     ) {
       return;
     }
@@ -96,9 +98,8 @@ export class GameSimulation {
     const speed = chargeToSpeed(this.state.chargeSeconds, simulationConfig);
     this.state.cannonAngle = angle;
     this.state.lastLaunchSpeed = speed;
-    this.state.projectile = createProjectile(cannon, angle, speed);
-    this.state.ammo -= 1;
-    this.state.shotCombo = 0;
+    this.state.skewer = createSkewer(cannon, angle, speed);
+    this.state.skewers -= 1;
     this.state.charging = false;
     return true;
   }
@@ -140,17 +141,17 @@ export class GameSimulation {
       chargeSeconds: 0,
       charging: false,
       paused: false,
-      projectile: null,
+      skewer: null,
       lastLaunchSpeed: simulationConfig.minLaunchSpeed,
-      ammo: this.stage.ammo,
+      skewers: this.stage.skewers,
       score: 0,
       status: "playing",
-      shotCombo: 0,
-      enemies: this.stage.enemies.map((enemy) => ({
-        id: enemy.id,
-        position: { x: enemy.x, y: enemy.y },
-        radius: enemy.radius,
-        alive: true,
+      balls: this.stage.balls.map((ball) => ({
+        id: ball.id,
+        position: { x: ball.x, y: ball.y },
+        radius: ball.radius,
+        available: true,
+        color: ball.color,
       })),
       bombs: this.stage.bombs.map((bomb) => ({
         id: bomb.id,
@@ -166,38 +167,34 @@ export class GameSimulation {
     end: Vec2,
     result: SimulationUpdate,
   ): void {
-    const projectile = this.state.projectile;
-    if (!projectile) return;
+    const skewer = this.state.skewer;
+    if (!skewer) return;
 
     const hits: Array<{
       time: number;
-      kind: "enemy" | "bomb";
+      kind: "ball" | "bomb";
       id: string;
       position: Vec2;
     }> = [];
-    const projectileRadius = simulationConfig.radius;
 
-    for (const enemy of this.state.enemies) {
-      if (!enemy.alive) continue;
-      const time = segmentCircleIntersection(
-        start,
-        end,
-        enemy.position,
-        enemy.radius + projectileRadius,
-      );
-      if (time !== null) {
-        hits.push({ time, kind: "enemy", id: enemy.id, position: enemy.position });
+    if (skewer.attachedBallIds.length < simulationConfig.maxBallsPerSkewer) {
+      for (const ball of this.state.balls) {
+        if (!ball.available) continue;
+        const time = segmentCircleIntersection(
+          start,
+          end,
+          ball.position,
+          ball.radius + simulationConfig.tipRadius,
+        );
+        if (time !== null) {
+          hits.push({ time, kind: "ball", id: ball.id, position: ball.position });
+        }
       }
     }
 
     for (const bomb of this.state.bombs) {
       if (bomb.triggered) continue;
-      const time = segmentCircleIntersection(
-        start,
-        end,
-        bomb.position,
-        bomb.radius + projectileRadius,
-      );
+      const time = this.getBombHitTime(start, end, bomb.position, bomb.radius);
       if (time !== null) {
         hits.push({ time, kind: "bomb", id: bomb.id, position: bomb.position });
       }
@@ -209,37 +206,109 @@ export class GameSimulation {
         const bomb = this.state.bombs.find((candidate) => candidate.id === hit.id);
         if (!bomb || bomb.triggered) continue;
         bomb.triggered = true;
-        projectile.active = false;
-        this.state.ammo = Math.max(0, this.state.ammo - 1);
+        skewer.active = false;
+        this.state.skewers = Math.max(0, this.state.skewers - 1);
         this.state.score = Math.max(0, this.state.score - 500);
         result.bombHit = { ...hit.position };
+        result.wallHit = null;
         return;
       }
 
-      const enemy = this.state.enemies.find((candidate) => candidate.id === hit.id);
-      if (!enemy || !enemy.alive) continue;
-      enemy.alive = false;
-      this.state.shotCombo += 1;
-      this.state.score += 100 * this.state.shotCombo;
-      if (projectile.bounces >= 2) this.state.score += 100;
-      result.enemyHits.push({ ...hit.position });
-
-      if (
-        this.state.enemies.every((candidate) => !candidate.alive) &&
-        this.state.shotCombo === this.totalEnemies
-      ) {
-        this.state.score += 1000;
+      if (skewer.attachedBallIds.length >= simulationConfig.maxBallsPerSkewer) {
+        continue;
       }
+      const ball = this.state.balls.find((candidate) => candidate.id === hit.id);
+      if (!ball || !ball.available) continue;
+      ball.available = false;
+      skewer.attachedBallIds.push(ball.id);
+      result.ballHits.push({ ...hit.position });
     }
   }
 
-  private finishShot(): boolean {
-    if (this.state.enemies.every((enemy) => !enemy.alive)) {
-      this.state.score += this.state.ammo * 300;
+  private finishSkewer(result: SimulationUpdate): boolean {
+    const skewer = this.state.skewer;
+    if (!skewer) return false;
+
+    const completed =
+      Boolean(result.wallHit) &&
+      skewer.attachedBallIds.length === simulationConfig.maxBallsPerSkewer;
+    if (completed) {
+      this.state.score += 600;
+      return true;
+    }
+
+    for (const ballId of skewer.attachedBallIds) {
+      const ball = this.state.balls.find((candidate) => candidate.id === ballId);
+      if (ball) ball.available = true;
+    }
+    result.restoredBalls = skewer.attachedBallIds.length > 0;
+    return false;
+  }
+
+  private getBombHitTime(
+    start: Vec2,
+    end: Vec2,
+    bombPosition: Vec2,
+    bombRadius: number,
+  ): number | null {
+    const skewer = this.state.skewer;
+    if (!skewer) return null;
+
+    const speed = Math.hypot(skewer.velocity.x, skewer.velocity.y) || 1;
+    const forward = {
+      x: skewer.velocity.x / speed,
+      y: skewer.velocity.y / speed,
+    };
+    const candidates: number[] = [];
+    const sampleSpacing = simulationConfig.tipRadius * 2;
+
+    for (
+      let offset = 0;
+      offset <= simulationConfig.skewerLength;
+      offset += sampleSpacing
+    ) {
+      const time = segmentCircleIntersection(
+        {
+          x: start.x - forward.x * offset,
+          y: start.y - forward.y * offset,
+        },
+        {
+          x: end.x - forward.x * offset,
+          y: end.y - forward.y * offset,
+        },
+        bombPosition,
+        bombRadius + simulationConfig.tipRadius,
+      );
+      if (time !== null) candidates.push(time);
+    }
+
+    skewer.attachedBallIds.forEach((_ballId, index) => {
+      const offset = 24 + index * simulationConfig.ballSpacing;
+      const time = segmentCircleIntersection(
+        {
+          x: start.x - forward.x * offset,
+          y: start.y - forward.y * offset,
+        },
+        {
+          x: end.x - forward.x * offset,
+          y: end.y - forward.y * offset,
+        },
+        bombPosition,
+        bombRadius + 18,
+      );
+      if (time !== null) candidates.push(time);
+    });
+
+    return candidates.length > 0 ? Math.min(...candidates) : null;
+  }
+
+  private finishStage(): boolean {
+    if (this.state.balls.every((ball) => !ball.available)) {
+      this.state.score += 1000 + this.state.skewers * 300;
       this.state.status = "won";
       return true;
     }
-    if (this.state.ammo <= 0) {
+    if (this.state.skewers <= 0) {
       this.state.status = "lost";
       return true;
     }

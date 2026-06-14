@@ -3,28 +3,35 @@ import { arena, cannon, DESIGN_HEIGHT, DESIGN_WIDTH, simulationConfig } from "..
 import { gameEvents, type GameCommand } from "../../game/input/gameEvents";
 import { chargeToSpeed, muzzlePosition } from "../../game/simulation/physics";
 import { GameSimulation } from "../../game/simulation/GameSimulation";
+import type { BallState } from "../../game/simulation/types";
 
 interface HudDetail {
   angle: number;
   speed: number;
-  bounces: number;
   charging: boolean;
   charge: number;
-  projectileActive: boolean;
+  skewerActive: boolean;
+  attachedBalls: number;
   score: number;
-  ammo: number;
-  enemies: number;
-  combo: number;
+  skewers: number;
+  balls: number;
   status: "playing" | "won" | "lost";
   targetScore: number;
+  shotResult: "complete" | "incomplete" | null;
 }
 
 interface ImpactFx {
   x: number;
   y: number;
-  kind: "enemy" | "bomb";
+  kind: "ball" | "bomb" | "complete" | "incomplete";
   life: number;
 }
+
+const ballColors: Record<BallState["color"], number> = {
+  white: 0xfff8e8,
+  pink: 0xf5a3a7,
+  green: 0x91c98f,
+};
 
 export class PlayScene extends Phaser.Scene {
   private readonly simulation = new GameSimulation();
@@ -32,13 +39,14 @@ export class PlayScene extends Phaser.Scene {
   private targetGraphics!: Phaser.GameObjects.Graphics;
   private trajectoryGraphics!: Phaser.GameObjects.Graphics;
   private cannonGraphics!: Phaser.GameObjects.Graphics;
-  private projectileGraphics!: Phaser.GameObjects.Graphics;
+  private skewerGraphics!: Phaser.GameObjects.Graphics;
   private fxGraphics!: Phaser.GameObjects.Graphics;
   private spaceKey!: Phaser.Input.Keyboard.Key;
   private debugVisible = true;
   private lastPreviewKey = "";
-  private flash = 0;
   private impacts: ImpactFx[] = [];
+  private lastShotResult: HudDetail["shotResult"] = null;
+  private shotResultLife = 0;
 
   constructor() {
     super("play");
@@ -50,7 +58,7 @@ export class PlayScene extends Phaser.Scene {
     this.targetGraphics = this.add.graphics();
     this.trajectoryGraphics = this.add.graphics();
     this.cannonGraphics = this.add.graphics();
-    this.projectileGraphics = this.add.graphics();
+    this.skewerGraphics = this.add.graphics();
     this.fxGraphics = this.add.graphics();
     this.drawWorld();
 
@@ -80,21 +88,30 @@ export class PlayScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustUp(this.spaceKey)) this.simulation.releaseCharge();
 
     const result = this.simulation.update(deltaMilliseconds / 1000);
-    if (result.bounced) this.flash = 1;
-    for (const hit of result.enemyHits) {
-      this.impacts.push({ ...hit, kind: "enemy", life: 1 });
+    for (const hit of result.ballHits) {
+      this.impacts.push({ ...hit, kind: "ball", life: 1 });
     }
     if (result.bombHit) {
       this.impacts.push({ ...result.bombHit, kind: "bomb", life: 1 });
     }
-    this.flash = Math.max(0, this.flash - deltaMilliseconds / 180);
+    if (result.wallHit) {
+      const kind = result.completedSkewer ? "complete" : "incomplete";
+      this.impacts.push({ ...result.wallHit, kind, life: 1 });
+    }
+    if (result.shotEnded) {
+      this.lastShotResult = result.completedSkewer ? "complete" : "incomplete";
+      this.shotResultLife = 1.25;
+    }
+
+    this.shotResultLife = Math.max(0, this.shotResultLife - deltaMilliseconds / 1000);
+    if (this.shotResultLife === 0) this.lastShotResult = null;
     this.impacts = this.impacts
-      .map((impact) => ({ ...impact, life: impact.life - deltaMilliseconds / 500 }))
+      .map((impact) => ({ ...impact, life: impact.life - deltaMilliseconds / 600 }))
       .filter((impact) => impact.life > 0);
 
     this.drawTargets();
     this.drawCannon();
-    this.drawProjectile();
+    this.drawSkewer();
     this.drawPreview();
     this.drawFx();
     this.emitHud();
@@ -121,6 +138,8 @@ export class PlayScene extends Phaser.Scene {
       case "retry":
         this.simulation.reset();
         this.impacts = [];
+        this.lastShotResult = null;
+        this.shotResultLife = 0;
         this.lastPreviewKey = "";
         this.setPaused(false);
         break;
@@ -135,7 +154,6 @@ export class PlayScene extends Phaser.Scene {
   private drawWorld(): void {
     const g = this.worldGraphics;
     g.clear();
-
     g.fillGradientStyle(0x302b55, 0x302b55, 0x17162b, 0x17162b, 1);
     g.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
 
@@ -146,7 +164,7 @@ export class PlayScene extends Phaser.Scene {
       g.fillCircle(x, y, 2 + (i % 3));
     }
 
-    g.lineStyle(4, 0xf4d7a1, 0.7);
+    g.lineStyle(8, 0x8f542f, 1);
     g.strokeRoundedRect(
       arena.left,
       arena.top,
@@ -154,16 +172,22 @@ export class PlayScene extends Phaser.Scene {
       arena.bottom - arena.top,
       18,
     );
-    g.lineStyle(1, 0xf4d7a1, 0.12);
+    g.lineStyle(3, 0xf4d7a1, 0.75);
+    g.strokeRoundedRect(
+      arena.left + 5,
+      arena.top + 5,
+      arena.right - arena.left - 10,
+      arena.bottom - arena.top - 10,
+      14,
+    );
+
+    g.lineStyle(1, 0xf4d7a1, 0.1);
     for (let x = arena.left + 80; x < arena.right; x += 80) {
       g.lineBetween(x, arena.top, x, arena.bottom);
     }
     for (let y = arena.top + 80; y < arena.bottom; y += 80) {
       g.lineBetween(arena.left, y, arena.right, y);
     }
-
-    g.fillStyle(0x0d0c1a, 0.6);
-    g.fillRect(arena.left, arena.bottom - 10, arena.right - arena.left, 10);
   }
 
   private drawCannon(): void {
@@ -182,7 +206,6 @@ export class PlayScene extends Phaser.Scene {
       muzzle.x,
       muzzle.y,
     );
-
     g.fillStyle(0x3f2a3d, 1);
     g.fillRoundedRect(cannon.x - 62, cannon.y - 18, 124, 48, 20);
     g.fillStyle(0xd88972, 1);
@@ -201,21 +224,19 @@ export class PlayScene extends Phaser.Scene {
     const g = this.targetGraphics;
     g.clear();
 
-    for (const enemy of this.simulation.state.enemies) {
-      if (!enemy.alive) continue;
-      const { x, y } = enemy.position;
-      const float = Math.sin(this.simulation.state.elapsedSeconds * 3 + x) * 4;
+    for (const ball of this.simulation.state.balls) {
+      if (!ball.available) continue;
+      const { x, y } = ball.position;
+      const float = Math.sin(this.simulation.state.elapsedSeconds * 3 + x) * 3;
       g.fillStyle(0x000000, 0.2);
-      g.fillEllipse(x + 5, y + float + 25, 48, 16);
-      g.fillStyle(0x62c2c7, 1);
-      g.fillCircle(x, y + float, enemy.radius);
-      g.fillStyle(0xb7f1e5, 1);
-      g.fillCircle(x - 8, y + float - 7, 8);
-      g.fillStyle(0x302b55, 1);
-      g.fillCircle(x - 8, y + float - 7, 3);
-      g.fillCircle(x + 8, y + float - 7, 3);
-      g.lineStyle(3, 0x302b55, 1);
-      g.lineBetween(x - 6, y + float + 8, x + 6, y + float + 8);
+      g.fillEllipse(x + 5, y + float + 19, 38, 12);
+      g.fillStyle(ballColors[ball.color], 1);
+      g.fillCircle(x, y + float, ball.radius);
+      g.lineStyle(3, 0x5d3948, 0.8);
+      g.strokeCircle(x, y + float, ball.radius);
+      g.fillStyle(0x5d3948, 1);
+      g.fillCircle(x - 6, y + float - 4, 2);
+      g.fillCircle(x + 6, y + float - 4, 2);
     }
 
     for (const bomb of this.simulation.state.bombs) {
@@ -230,30 +251,56 @@ export class PlayScene extends Phaser.Scene {
       g.lineBetween(x + 10, y - 24, x + 21, y - 42);
       g.fillStyle(0xff5d5d, 1);
       g.fillCircle(x + 23, y - 45, 6);
-      g.lineStyle(3, 0xf4d7a1, 0.75);
-      g.lineBetween(x - 10, y - 10, x + 10, y + 10);
-      g.lineBetween(x + 10, y - 10, x - 10, y + 10);
     }
   }
 
-  private drawProjectile(): void {
-    const g = this.projectileGraphics;
-    const projectile = this.simulation.state.projectile;
+  private drawSkewer(): void {
+    const g = this.skewerGraphics;
+    const skewer = this.simulation.state.skewer;
     g.clear();
-    if (!projectile) return;
+    if (!skewer) return;
 
-    const { x, y } = projectile.position;
-    g.fillStyle(0x000000, 0.25);
-    g.fillCircle(x + 7, y + 9, simulationConfig.radius + 2);
-    g.fillStyle(0xffffff, 1);
-    g.fillCircle(x, y, simulationConfig.radius);
-    g.fillStyle(0xf5a3a7, 1);
-    g.fillCircle(x, y - 1, simulationConfig.radius * 0.7);
-    g.fillStyle(0x91c98f, 1);
-    g.fillCircle(x, y + 5, simulationConfig.radius * 0.42);
-    g.fillStyle(0x3f2a3d, 1);
-    g.fillCircle(x - 5, y - 4, 2);
-    g.fillCircle(x + 5, y - 4, 2);
+    const length = Math.hypot(skewer.velocity.x, skewer.velocity.y) || 1;
+    const forwardX = skewer.velocity.x / length;
+    const forwardY = skewer.velocity.y / length;
+    const backX = skewer.position.x - forwardX * simulationConfig.skewerLength;
+    const backY = skewer.position.y - forwardY * simulationConfig.skewerLength;
+
+    g.lineStyle(9, 0x4a2d21, 0.25);
+    g.lineBetween(backX + 5, backY + 6, skewer.position.x + 5, skewer.position.y + 6);
+    g.lineStyle(7, 0xc88b52, 1);
+    g.lineBetween(backX, backY, skewer.position.x, skewer.position.y);
+    g.lineStyle(3, 0xffe0a3, 1);
+    g.lineBetween(
+      skewer.position.x - forwardX * 12,
+      skewer.position.y - forwardY * 12,
+      skewer.position.x,
+      skewer.position.y,
+    );
+
+    skewer.attachedBallIds.forEach((ballId, index) => {
+      const ball = this.simulation.state.balls.find((candidate) => candidate.id === ballId);
+      if (!ball) return;
+      const distance = 24 + index * simulationConfig.ballSpacing;
+      const x = skewer.position.x - forwardX * distance;
+      const y = skewer.position.y - forwardY * distance;
+      g.fillStyle(0x000000, 0.2);
+      g.fillCircle(x + 4, y + 5, 19);
+      g.fillStyle(ballColors[ball.color], 1);
+      g.fillCircle(x, y, 18);
+      g.lineStyle(3, 0x5d3948, 0.85);
+      g.strokeCircle(x, y, 18);
+    });
+
+    const indicatorY = skewer.position.y - 42;
+    for (let i = 0; i < simulationConfig.maxBallsPerSkewer; i += 1) {
+      const x = skewer.position.x + (i - 1) * 18;
+      const filled = i < skewer.attachedBallIds.length;
+      g.fillStyle(filled ? 0xffcf70 : 0x302b55, filled ? 1 : 0.75);
+      g.fillCircle(x, indicatorY, 6);
+      g.lineStyle(2, 0xfff8e8, 0.85);
+      g.strokeCircle(x, indicatorY, 6);
+    }
   }
 
   private drawPreview(): void {
@@ -261,7 +308,7 @@ export class PlayScene extends Phaser.Scene {
     const speed = Math.round(
       chargeToSpeed(this.simulation.state.chargeSeconds, simulationConfig) / 5,
     ) * 5;
-    const key = `${angle}:${speed}:${this.debugVisible}:${Boolean(this.simulation.state.projectile)}:${this.simulation.state.status}`;
+    const key = `${angle}:${speed}:${this.debugVisible}:${Boolean(this.simulation.state.skewer)}:${this.simulation.state.status}`;
     if (key === this.lastPreviewKey) return;
     this.lastPreviewKey = key;
 
@@ -269,7 +316,7 @@ export class PlayScene extends Phaser.Scene {
     g.clear();
     if (
       !this.debugVisible ||
-      this.simulation.state.projectile ||
+      this.simulation.state.skewer ||
       this.simulation.state.status !== "playing"
     ) {
       return;
@@ -278,7 +325,7 @@ export class PlayScene extends Phaser.Scene {
     const points = this.simulation.getPreview();
     for (let i = 0; i < points.length; i += 1) {
       const point = points[i];
-      if (point.bounce) {
+      if (point.wall) {
         g.fillStyle(0xffb84d, 0.95);
         g.fillPoints(
           [
@@ -299,41 +346,42 @@ export class PlayScene extends Phaser.Scene {
   private drawFx(): void {
     const g = this.fxGraphics;
     g.clear();
-    if (this.flash > 0 && this.simulation.state.projectile) {
-      const { x, y } = this.simulation.state.projectile.position;
-      g.lineStyle(7, 0xffb84d, this.flash);
-      g.strokeCircle(x, y, 24 + (1 - this.flash) * 36);
-    }
     for (const impact of this.impacts) {
-      const color = impact.kind === "bomb" ? 0xff5d5d : 0xb7f1e5;
-      const radius = impact.kind === "bomb" ? 90 : 45;
+      const color =
+        impact.kind === "bomb"
+          ? 0xff5d5d
+          : impact.kind === "complete"
+            ? 0xffcf70
+            : impact.kind === "incomplete"
+              ? 0xa99eae
+              : 0xb7f1e5;
+      const radius = impact.kind === "bomb" ? 90 : impact.kind === "complete" ? 70 : 42;
       g.lineStyle(8, color, impact.life);
       g.strokeCircle(impact.x, impact.y, 12 + (1 - impact.life) * radius);
-      if (impact.kind === "bomb") {
-        g.fillStyle(0xffcf70, impact.life * 0.35);
-        g.fillCircle(impact.x, impact.y, 60 * impact.life);
+      if (impact.kind === "bomb" || impact.kind === "complete") {
+        g.fillStyle(color, impact.life * 0.25);
+        g.fillCircle(impact.x, impact.y, 54 * impact.life);
       }
     }
   }
 
   private emitHud(): void {
-    const angle = this.simulation.getCurrentAngle();
     const speed = this.simulation.state.charging
       ? chargeToSpeed(this.simulation.state.chargeSeconds, simulationConfig)
       : this.simulation.state.lastLaunchSpeed;
     const detail: HudDetail = {
-      angle,
+      angle: this.simulation.getCurrentAngle(),
       speed,
-      bounces: this.simulation.state.projectile?.bounces ?? 0,
       charging: this.simulation.state.charging,
       charge: this.simulation.getChargeProgress(),
-      projectileActive: Boolean(this.simulation.state.projectile),
+      skewerActive: Boolean(this.simulation.state.skewer),
+      attachedBalls: this.simulation.state.skewer?.attachedBallIds.length ?? 0,
       score: this.simulation.state.score,
-      ammo: this.simulation.state.ammo,
-      enemies: this.simulation.state.enemies.filter((enemy) => enemy.alive).length,
-      combo: this.simulation.state.shotCombo,
+      skewers: this.simulation.state.skewers,
+      balls: this.simulation.state.balls.filter((ball) => ball.available).length,
       status: this.simulation.state.status,
       targetScore: this.simulation.getTargetScore(),
+      shotResult: this.lastShotResult,
     };
     window.dispatchEvent(new CustomEvent<HudDetail>("odango-hud", { detail }));
   }

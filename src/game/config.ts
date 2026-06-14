@@ -21,13 +21,14 @@ export const cannon: CannonConfig = {
 
 export const simulationConfig: SimulationConfig = {
   gravity: 620,
-  radius: 17,
-  restitution: 0.98,
+  tipRadius: 7,
+  skewerLength: 88,
+  ballSpacing: 30,
+  maxBallsPerSkewer: 3,
   minChargeSeconds: 0.15,
   maxChargeSeconds: 1.5,
   minLaunchSpeed: 430,
   maxLaunchSpeed: 900,
-  maxBounces: 6,
   maxFlightSeconds: 10,
   fixedStepSeconds: 1 / 120,
 };

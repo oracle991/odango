@@ -11,14 +11,14 @@
       <section class="game-shell" aria-label="おだんご重力砲台">
         <header class="hud">
           <div>
-            <p class="eyebrow">M2 CORE RULES</p>
+            <p class="eyebrow">M2R THREE-BALL CORE</p>
             <h1>おだんご重力砲台</h1>
           </div>
           <div class="readouts" aria-live="polite">
             <span><b id="score-value">0</b><small>スコア</small></span>
-            <span><b id="enemy-value">5</b><small>残り敵</small></span>
-            <span><b id="ammo-value">6</b><small>残弾</small></span>
-            <span><b id="bounce-value">0 / 6</b><small>反射</small></span>
+            <span><b id="ball-value">6</b><small>残り球</small></span>
+            <span><b id="ammo-value">6</b><small>残り串</small></span>
+            <span><b id="skewer-value">0 / 3</b><small>串の球</small></span>
           </div>
           <button id="pause-button" class="icon-button" type="button" aria-label="ポーズ">Ⅱ</button>
         </header>
@@ -27,7 +27,7 @@
 
         <aside id="help-card" class="help-card">
           <p class="eyebrow">HOW TO FIRE</p>
-          <p><kbd>Space</kbd> またはボタンを押してチャージ、離して発射。</p>
+          <p><kbd>Space</kbd> またはボタンで空の串を発射。先端で球を3個刺し、壁まで届けると得点です。</p>
           <button id="dismiss-help" type="button">了解</button>
         </aside>
 

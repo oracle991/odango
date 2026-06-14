@@ -1,8 +1,8 @@
 import type {
   Arena,
   CannonConfig,
-  ProjectileState,
   SimulationConfig,
+  SkewerState,
   TrajectoryPoint,
   Vec2,
 } from "./types";
@@ -27,11 +27,11 @@ export function muzzlePosition(cannon: CannonConfig, angle: number): Vec2 {
   };
 }
 
-export function createProjectile(
+export function createSkewer(
   cannon: CannonConfig,
   angle: number,
   speed: number,
-): ProjectileState {
+): SkewerState {
   const radians = degreesToRadians(angle);
   return {
     position: muzzlePosition(cannon, angle),
@@ -39,60 +39,65 @@ export function createProjectile(
       x: Math.cos(radians) * speed,
       y: -Math.sin(radians) * speed,
     },
-    bounces: 0,
     ageSeconds: 0,
     active: true,
+    attachedBallIds: [],
   };
 }
 
-export function stepProjectile(
-  projectile: ProjectileState,
+export function segmentArenaExitIntersection(
+  start: Vec2,
+  end: Vec2,
+  arena: Arena,
+): number | null {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const intersections: number[] = [];
+
+  if (dx < 0 && end.x <= arena.left) {
+    intersections.push((arena.left - start.x) / dx);
+  } else if (dx > 0 && end.x >= arena.right) {
+    intersections.push((arena.right - start.x) / dx);
+  }
+  if (dy < 0 && end.y <= arena.top) {
+    intersections.push((arena.top - start.y) / dy);
+  } else if (dy > 0 && end.y >= arena.bottom) {
+    intersections.push((arena.bottom - start.y) / dy);
+  }
+
+  const valid = intersections.filter((time) => time >= 0 && time <= 1);
+  return valid.length > 0 ? Math.min(...valid) : null;
+}
+
+export function stepSkewer(
+  skewer: SkewerState,
   deltaSeconds: number,
   arena: Arena,
   config: SimulationConfig,
-): boolean {
-  if (!projectile.active) return false;
+): Vec2 | null {
+  if (!skewer.active) return null;
 
-  projectile.ageSeconds += deltaSeconds;
-  projectile.velocity.y += config.gravity * deltaSeconds;
-  projectile.position.x += projectile.velocity.x * deltaSeconds;
-  projectile.position.y += projectile.velocity.y * deltaSeconds;
+  skewer.ageSeconds += deltaSeconds;
+  skewer.velocity.y += config.gravity * deltaSeconds;
+  const start = { ...skewer.position };
+  const end = {
+    x: start.x + skewer.velocity.x * deltaSeconds,
+    y: start.y + skewer.velocity.y * deltaSeconds,
+  };
+  const wallTime = segmentArenaExitIntersection(start, end, arena);
 
-  let bounced = false;
-  const radius = config.radius;
-
-  if (projectile.position.x - radius <= arena.left && projectile.velocity.x < 0) {
-    projectile.position.x = arena.left + radius;
-    projectile.velocity.x = -projectile.velocity.x * config.restitution;
-    bounced = true;
-  } else if (projectile.position.x + radius >= arena.right && projectile.velocity.x > 0) {
-    projectile.position.x = arena.right - radius;
-    projectile.velocity.x = -projectile.velocity.x * config.restitution;
-    bounced = true;
+  if (wallTime !== null) {
+    skewer.position.x = start.x + (end.x - start.x) * wallTime;
+    skewer.position.y = start.y + (end.y - start.y) * wallTime;
+    skewer.active = false;
+    return { ...skewer.position };
   }
 
-  if (projectile.position.y - radius <= arena.top && projectile.velocity.y < 0) {
-    projectile.position.y = arena.top + radius;
-    projectile.velocity.y = -projectile.velocity.y * config.restitution;
-    bounced = true;
-  } else if (projectile.position.y + radius >= arena.bottom && projectile.velocity.y > 0) {
-    projectile.position.y = arena.bottom - radius;
-    projectile.velocity.y = -projectile.velocity.y * config.restitution;
-    bounced = true;
+  skewer.position = end;
+  if (skewer.ageSeconds >= config.maxFlightSeconds) {
+    skewer.active = false;
   }
-
-  if (bounced) {
-    if (projectile.bounces >= config.maxBounces) {
-      projectile.active = false;
-    } else {
-      projectile.bounces += 1;
-    }
-  }
-  if (projectile.ageSeconds >= config.maxFlightSeconds) {
-    projectile.active = false;
-  }
-
-  return bounced;
+  return null;
 }
 
 export function segmentCircleIntersection(
@@ -134,17 +139,15 @@ export function predictTrajectory(
   config: SimulationConfig,
   seconds = 8,
 ): TrajectoryPoint[] {
-  const projectile = createProjectile(cannon, angle, speed);
-  const points: TrajectoryPoint[] = [
-    { ...projectile.position, bounce: false },
-  ];
+  const skewer = createSkewer(cannon, angle, speed);
+  const points: TrajectoryPoint[] = [{ ...skewer.position, wall: false }];
   const sampleEvery = 8;
   const totalSteps = Math.ceil(seconds / config.fixedStepSeconds);
 
-  for (let step = 0; step < totalSteps && projectile.active; step += 1) {
-    const bounced = stepProjectile(projectile, config.fixedStepSeconds, arena, config);
-    if (bounced || step % sampleEvery === 0) {
-      points.push({ ...projectile.position, bounce: bounced });
+  for (let step = 0; step < totalSteps && skewer.active; step += 1) {
+    const wallHit = stepSkewer(skewer, config.fixedStepSeconds, arena, config);
+    if (wallHit || step % sampleEvery === 0) {
+      points.push({ ...skewer.position, wall: Boolean(wallHit) });
     }
   }
 

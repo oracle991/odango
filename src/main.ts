@@ -22,9 +22,9 @@ const game = new Phaser.Game({
 });
 
 const scoreValue = document.querySelector<HTMLElement>("#score-value");
-const enemyValue = document.querySelector<HTMLElement>("#enemy-value");
+const ballValue = document.querySelector<HTMLElement>("#ball-value");
 const ammoValue = document.querySelector<HTMLElement>("#ammo-value");
-const bounceValue = document.querySelector<HTMLElement>("#bounce-value");
+const skewerValue = document.querySelector<HTMLElement>("#skewer-value");
 const chargeFill = document.querySelector<HTMLElement>("#charge-fill");
 const statusCopy = document.querySelector<HTMLElement>("#status-copy");
 const fireButton = document.querySelector<HTMLButtonElement>("#fire-button");
@@ -44,39 +44,41 @@ const resultRetryButton = document.querySelector<HTMLButtonElement>("#result-ret
 interface HudDetail {
   angle: number;
   speed: number;
-  bounces: number;
   charging: boolean;
   charge: number;
-  projectileActive: boolean;
+  skewerActive: boolean;
+  attachedBalls: number;
   score: number;
-  ammo: number;
-  enemies: number;
-  combo: number;
+  skewers: number;
+  balls: number;
   status: "playing" | "won" | "lost";
   targetScore: number;
+  shotResult: "complete" | "incomplete" | null;
 }
 
 window.addEventListener("odango-hud", (event) => {
   const detail = (event as CustomEvent<HudDetail>).detail;
   if (scoreValue) scoreValue.textContent = detail.score.toLocaleString("ja-JP");
-  if (enemyValue) enemyValue.textContent = `${detail.enemies}`;
-  if (ammoValue) ammoValue.textContent = `${detail.ammo}`;
-  if (bounceValue) bounceValue.textContent = `${detail.bounces} / 6`;
+  if (ballValue) ballValue.textContent = `${detail.balls}`;
+  if (ammoValue) ammoValue.textContent = `${detail.skewers}`;
+  if (skewerValue) skewerValue.textContent = `${detail.attachedBalls} / 3`;
   if (chargeFill) chargeFill.style.setProperty("--charge", `${detail.charge * 100}%`);
   if (fireButton) {
     fireButton.classList.toggle("is-charging", detail.charging);
-    fireButton.disabled = detail.projectileActive || detail.status !== "playing" || detail.ammo <= 0;
+    fireButton.disabled = detail.skewerActive || detail.status !== "playing" || detail.skewers <= 0;
   }
   if (statusCopy) {
     statusCopy.textContent = detail.status !== "playing"
       ? "リザルトを確認してください"
-      : detail.projectileActive
-      ? "飛行中。反射を観察しよう"
-      : detail.combo > 1
-        ? `${detail.combo}体 貫通コンボ！`
+      : detail.shotResult === "complete"
+        ? "三色だんご完成！ 600点"
+      : detail.shotResult === "incomplete"
+        ? "未完成。球は元の位置へ戻ります"
+      : detail.skewerActive
+        ? `${detail.attachedBalls} / 3 個。壁まで届けよう`
       : detail.charging
         ? "離した瞬間の角度で発射"
-        : "狙いを定めています";
+        : "串先端で3個刺して壁へ届けよう";
   }
   if (resultPanel) {
     resultPanel.hidden = detail.status === "playing";
@@ -85,7 +87,7 @@ window.addEventListener("odango-hud", (event) => {
       const ratio = detail.score / detail.targetScore;
       const rank = !won ? "C" : ratio >= 1.2 ? "S" : ratio >= 1 ? "A" : "B";
       if (resultEyebrow) resultEyebrow.textContent = won ? "STAGE CLEAR" : "STAGE FAILED";
-      if (resultTitle) resultTitle.textContent = won ? "おみごと！" : "弾切れです";
+      if (resultTitle) resultTitle.textContent = won ? "おみごと！" : "串切れです";
       if (resultScore) resultScore.textContent = detail.score.toLocaleString("ja-JP");
       if (resultRank) resultRank.textContent = rank;
     }
