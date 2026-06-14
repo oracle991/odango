@@ -154,3 +154,10 @@ npm run dev
 - GitHub: <https://github.com/oracle991/odango>
 - デフォルトブランチ: `main`
 - M1初回コミット: `efb51ca Build gravity cannon M1 prototype`
+
+## 2026-06-14 串への団子追加順を修正
+
+- 新しく取得した団子を `attachedBallIds` の先頭へ追加し、串の先端側から順に刺さるよう修正
+- 接触順が `a -> b -> c` の場合、先端から `c, b, a` になる回帰テストを追加
+- `npm test`: 27テスト成功
+- `npm run build`: 成功（既存のチャンクサイズ警告のみ）

@@ -108,6 +108,22 @@ describe("three-ball core rules", () => {
     expect(simulation.state.score).toBe(600);
   });
 
+  it("places newly collected balls closest to the skewer tip", () => {
+    const simulation = new GameSimulation(
+      createStage([
+        ball("a", 322),
+        ball("b", 344),
+        ball("c", 366),
+      ]),
+    );
+    fireTestSkewer(simulation, 300);
+
+    const result = simulation.update(1 / 120);
+
+    expect(result.ballHits).toHaveLength(3);
+    expect(simulation.state.skewer?.attachedBallIds).toEqual(["c", "b", "a"]);
+  });
+
   it("awards points only when three balls reach a wall", () => {
     const simulation = new GameSimulation(
       createStage([

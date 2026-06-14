@@ -251,7 +251,7 @@ export class GameSimulation {
       const ball = this.state.balls.find((candidate) => candidate.id === hit.id);
       if (!ball || !ball.available) continue;
       ball.available = false;
-      skewer.attachedBallIds.push(ball.id);
+      skewer.attachedBallIds.unshift(ball.id);
       result.ballHits.push({ ...hit.position });
     }
   }
