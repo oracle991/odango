@@ -1,0 +1,4 @@
+interface:
+  display_name: "2Dゲーム レベル設計"
+  short_description: "目標体験から逆算して2Dゲームのレベルを設計・評価する"
+  default_prompt: "Use $design-2d-levels to design and evaluate the next level for this 2D game."
