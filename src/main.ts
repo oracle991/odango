@@ -1,6 +1,13 @@
 import Phaser from "phaser";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "./game/config";
 import { sendGameCommand } from "./game/input/gameEvents";
+import {
+  calculateRank,
+  createDefaultProgress,
+  parseProgress,
+  recordStageResult,
+  type ProgressData,
+} from "./game/progress";
 import { validationStages } from "./game/stage";
 import { PlayScene } from "./phaser/scenes/PlayScene";
 import "./styles.css";
@@ -41,6 +48,7 @@ interface GameSettings {
 }
 
 const settingsKey = "odango-settings";
+const progressKey = "odango-progress";
 const defaultSettings: GameSettings = {
   bgmVolume: 0.3,
   sfxVolume: 0.7,
@@ -98,6 +106,9 @@ const stageObjective = query<HTMLElement>("#stage-objective");
 const stageGrid = query<HTMLElement>("#stage-grid");
 const feedbackSymbol = query<HTMLElement>("#feedback-symbol");
 const feedbackCopy = query<HTMLElement>("#feedback-copy");
+const previousStageButton = query<HTMLButtonElement>("#previous-stage");
+const nextStageButton = query<HTMLButtonElement>("#next-stage");
+const resultNextButton = query<HTMLButtonElement>("#result-next-button");
 
 const bgmVolume = query<HTMLInputElement>("#bgm-volume");
 const sfxVolume = query<HTMLInputElement>("#sfx-volume");
@@ -112,6 +123,8 @@ let settingsReturnScreen: ScreenName = "title";
 let feedbackTimer = 0;
 let wasCharging = false;
 let settings = loadSettings();
+let progress = loadProgress();
+let recordedResultKey = "";
 
 class AudioController {
   private context: AudioContext | null = null;
@@ -224,6 +237,17 @@ function saveSettings(): void {
   window.dispatchEvent(new CustomEvent<GameSettings>("odango-settings", { detail: settings }));
 }
 
+function loadProgress(): ProgressData {
+  return parseProgress(
+    localStorage.getItem(progressKey),
+    validationStages.length,
+  );
+}
+
+function saveProgress(): void {
+  localStorage.setItem(progressKey, JSON.stringify(progress));
+}
+
 function syncSettingsForm(): void {
   if (bgmVolume) bgmVolume.value = `${Math.round(settings.bgmVolume * 100)}`;
   if (sfxVolume) sfxVolume.value = `${Math.round(settings.sfxVolume * 100)}`;
@@ -241,6 +265,12 @@ function setGameplayUi(visible: boolean): void {
 }
 
 function showScreen(screen: ScreenName, stageIndex = currentStageIndex): void {
+  if (
+    screen === "play" &&
+    (stageIndex < 0 || stageIndex >= progress.unlockedStageCount)
+  ) {
+    screen = "stage";
+  }
   currentScreen = screen;
   if (titleScreen) titleScreen.hidden = screen !== "title";
   if (stageScreen) stageScreen.hidden = screen !== "stage";
@@ -252,6 +282,7 @@ function showScreen(screen: ScreenName, stageIndex = currentStageIndex): void {
 
   if (screen === "play") {
     currentStageIndex = stageIndex;
+    recordedResultKey = "";
     sendGameCommand({ type: "load-stage", stageIndex });
     if (helpCard) helpCard.hidden = sessionStorage.getItem("odango-help-seen") === "1";
     audio.setPlaying(true);
@@ -260,6 +291,7 @@ function showScreen(screen: ScreenName, stageIndex = currentStageIndex): void {
     audio.stopCharge();
     audio.setPlaying(false);
   }
+  if (screen === "stage") renderStageCards();
 }
 
 function openSettings(): void {
@@ -278,16 +310,31 @@ function renderStageCards(): void {
   if (!stageGrid) return;
   stageGrid.replaceChildren();
   validationStages.forEach((stage, index) => {
+    const unlocked = index < progress.unlockedStageCount;
+    const saved = progress.stages[stage.id];
+    const rank = saved?.cleared
+      ? calculateRank(saved.bestScore, stage.targetScore, true)
+      : null;
     const button = document.createElement("button");
     button.className = "stage-card";
     button.type = "button";
+    button.disabled = !unlocked;
+    button.dataset.chapter = `${stage.chapter ?? 1}`;
     button.innerHTML = `
-      <span>${String(index + 1).padStart(2, "0")}</span>
+      <span>${unlocked ? String(index + 1).padStart(2, "0") : "錠"}</span>
       <strong>${stage.name ?? stage.id}</strong>
-      <small>${stage.objective ?? ""}</small>
-      <em>残り串 ${stage.skewers}</em>
+      <small>${unlocked ? stage.objective ?? "" : "前のステージをクリアすると解放"}</small>
+      <em>${
+        saved
+          ? `BEST ${saved.bestScore.toLocaleString("ja-JP")} / RANK ${rank ?? "C"}`
+          : unlocked
+            ? `第${stage.chapter ?? 1}章 / 残り串 ${stage.skewers}`
+            : "LOCKED"
+      }</em>
     `;
-    button.addEventListener("click", () => showScreen("play", index));
+    if (unlocked) {
+      button.addEventListener("click", () => showScreen("play", index));
+    }
     stageGrid.append(button);
   });
 }
@@ -328,6 +375,7 @@ window.addEventListener("odango-ready", () => {
 window.addEventListener("odango-hud", (event) => {
   const detail = (event as CustomEvent<HudDetail>).detail;
   currentStageIndex = detail.stageIndex;
+  if (detail.status === "playing") recordedResultKey = "";
   if (scoreValue) scoreValue.textContent = detail.score.toLocaleString("ja-JP");
   if (ballValue) ballValue.textContent = `${detail.balls}`;
   if (ammoValue) ammoValue.textContent = `${detail.skewers}`;
@@ -340,6 +388,13 @@ window.addEventListener("odango-hud", (event) => {
   if (stageCounter) stageCounter.textContent = `STAGE ${detail.stageIndex + 1} / ${detail.stageCount}`;
   if (stageName) stageName.textContent = detail.stageName;
   if (stageObjective) stageObjective.textContent = detail.stageObjective;
+  if (previousStageButton) {
+    previousStageButton.disabled = detail.stageIndex <= 0;
+  }
+  if (nextStageButton) {
+    nextStageButton.disabled =
+      detail.stageIndex + 1 >= progress.unlockedStageCount;
+  }
   if (chargeFill) chargeFill.style.setProperty("--charge", `${detail.charge * 100}%`);
   if (detail.charging && !wasCharging) audio.startCharge();
   if (!detail.charging && wasCharging) audio.stopCharge();
@@ -367,8 +422,22 @@ window.addEventListener("odango-hud", (event) => {
     resultPanel.hidden = detail.status === "playing";
     if (detail.status !== "playing") {
       const won = detail.status === "won";
-      const ratio = detail.score / detail.targetScore;
-      const rank = !won ? "C" : ratio >= 1.2 ? "S" : ratio >= 1 ? "A" : "B";
+      const rank = calculateRank(detail.score, detail.targetScore, won);
+      const resultKey = `${detail.stageIndex}:${detail.status}:${detail.score}`;
+      if (recordedResultKey !== resultKey) {
+        recordedResultKey = resultKey;
+        const stage = validationStages[detail.stageIndex];
+        progress = recordStageResult(
+          progress,
+          stage.id,
+          detail.stageIndex,
+          validationStages.length,
+          detail.score,
+          won,
+        );
+        saveProgress();
+        renderStageCards();
+      }
       if (resultEyebrow) resultEyebrow.textContent = won ? "STAGE CLEAR" : "STAGE FAILED";
       if (resultTitle) resultTitle.textContent = won ? "おみごと！" : "串切れです";
       if (resultScore) resultScore.textContent = detail.score.toLocaleString("ja-JP");
@@ -377,6 +446,11 @@ window.addEventListener("odango-hud", (event) => {
         resultMessage.textContent = won
           ? "三色だんごをすべて壁へ届けました。"
           : "角度かチャージを変えて、もう一度試してみよう。";
+      }
+      if (resultNextButton) {
+        const finalStage = detail.stageIndex === validationStages.length - 1;
+        resultNextButton.textContent = finalStage ? "ステージ選択へ" : "次のステージ";
+        resultNextButton.disabled = !won && !finalStage;
       }
       audio.setPlaying(false);
     }
@@ -413,11 +487,19 @@ query("#pause-button")?.addEventListener("click", () => sendGameCommand("pause")
 query("#resume-button")?.addEventListener("click", () => sendGameCommand("resume"));
 query("#retry-button")?.addEventListener("click", () => sendGameCommand("retry"));
 query("#result-retry-button")?.addEventListener("click", () => sendGameCommand("retry"));
-query("#result-next-button")?.addEventListener("click", () => {
-  showScreen("play", (currentStageIndex + 1) % validationStages.length);
+resultNextButton?.addEventListener("click", () => {
+  if (currentStageIndex >= validationStages.length - 1) {
+    showScreen("stage");
+  } else {
+    showScreen("play", currentStageIndex + 1);
+  }
 });
-query("#previous-stage")?.addEventListener("click", () => sendGameCommand("previous-stage"));
-query("#next-stage")?.addEventListener("click", () => sendGameCommand("next-stage"));
+previousStageButton?.addEventListener("click", () => {
+  showScreen("play", currentStageIndex - 1);
+});
+nextStageButton?.addEventListener("click", () => {
+  showScreen("play", currentStageIndex + 1);
+});
 query("#start-button")?.addEventListener("click", () => showScreen("stage"));
 query("#stage-back-button")?.addEventListener("click", () => showScreen("title"));
 query("#pause-stage-button")?.addEventListener("click", () => showScreen("stage"));
@@ -433,9 +515,12 @@ document.querySelectorAll<HTMLButtonElement>(".open-settings").forEach((button) 
 query("#settings-close-button")?.addEventListener("click", closeSettings);
 query("#reset-data-button")?.addEventListener("click", () => {
   settings = { ...defaultSettings };
+  progress = createDefaultProgress();
   localStorage.removeItem(settingsKey);
+  localStorage.removeItem(progressKey);
   syncSettingsForm();
   saveSettings();
+  renderStageCards();
   audio.setPlaying(currentScreen === "play");
 });
 

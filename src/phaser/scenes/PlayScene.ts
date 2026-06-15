@@ -81,8 +81,6 @@ export class PlayScene extends Phaser.Scene {
     this.spaceKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     keyboard.on("keydown-ESC", () => this.handleCommand("pause"));
     keyboard.on("keydown-R", () => this.handleCommand("retry"));
-    keyboard.on("keydown-P", () => this.handleCommand("previous-stage"));
-    keyboard.on("keydown-N", () => this.handleCommand("next-stage"));
     keyboard.on("keydown-D", () => {
       this.trajectoryAssist = !this.trajectoryAssist;
       this.lastPreviewKey = "";
@@ -263,6 +261,7 @@ export class PlayScene extends Phaser.Scene {
       arena.bottom - arena.top - 10,
       14,
     );
+    this.drawScoringWalls(g);
 
     g.lineStyle(1, 0xf4d7a1, 0.1);
     for (let x = arena.left + 80; x < arena.right; x += 80) {
@@ -289,6 +288,43 @@ export class PlayScene extends Phaser.Scene {
         obstacle.height,
         8,
       );
+    }
+  }
+
+  private drawScoringWalls(g: Phaser.GameObjects.Graphics): void {
+    const scoringWalls = new Set(
+      this.simulation.getStage().scoringWallIds ?? [
+        "left",
+        "right",
+        "top",
+        "bottom",
+      ],
+    );
+    g.lineStyle(12, 0xffcf70, 0.24);
+    if (scoringWalls.has("left")) {
+      g.lineBetween(arena.left, arena.top + 18, arena.left, arena.bottom - 18);
+    }
+    if (scoringWalls.has("right")) {
+      g.lineBetween(arena.right, arena.top + 18, arena.right, arena.bottom - 18);
+    }
+    if (scoringWalls.has("top")) {
+      g.lineBetween(arena.left + 18, arena.top, arena.right - 18, arena.top);
+    }
+    if (scoringWalls.has("bottom")) {
+      g.lineBetween(arena.left + 18, arena.bottom, arena.right - 18, arena.bottom);
+    }
+    g.lineStyle(4, 0xffcf70, 0.95);
+    if (scoringWalls.has("left")) {
+      g.lineBetween(arena.left, arena.top + 18, arena.left, arena.bottom - 18);
+    }
+    if (scoringWalls.has("right")) {
+      g.lineBetween(arena.right, arena.top + 18, arena.right, arena.bottom - 18);
+    }
+    if (scoringWalls.has("top")) {
+      g.lineBetween(arena.left + 18, arena.top, arena.right - 18, arena.top);
+    }
+    if (scoringWalls.has("bottom")) {
+      g.lineBetween(arena.left + 18, arena.bottom, arena.right - 18, arena.bottom);
     }
   }
 
@@ -356,7 +392,27 @@ export class PlayScene extends Phaser.Scene {
     for (const ball of this.simulation.state.balls) {
       if (!ball.available) continue;
       const { x, y } = ball.position;
-      const float = Math.sin(this.simulation.state.elapsedSeconds * 3 + x) * 3;
+      const float = ball.motion
+        ? 0
+        : Math.sin(this.simulation.state.elapsedSeconds * 3 + x) * 3;
+      if (ball.motion) {
+        g.lineStyle(2, 0xb7f1e5, 0.24);
+        if (ball.motion.axis === "x") {
+          g.lineBetween(
+            ball.basePosition.x - ball.motion.amplitude,
+            ball.basePosition.y,
+            ball.basePosition.x + ball.motion.amplitude,
+            ball.basePosition.y,
+          );
+        } else {
+          g.lineBetween(
+            ball.basePosition.x,
+            ball.basePosition.y - ball.motion.amplitude,
+            ball.basePosition.x,
+            ball.basePosition.y + ball.motion.amplitude,
+          );
+        }
+      }
       g.fillStyle(0x000000, 0.2);
       g.fillEllipse(x + 5, y + float + 19, 38, 12);
       g.fillStyle(ballColors[ball.color], 1);

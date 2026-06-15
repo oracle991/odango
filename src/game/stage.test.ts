@@ -2,64 +2,112 @@ import { describe, expect, it } from "vitest";
 import { cannon } from "./config";
 import { createSkewer } from "./simulation/physics";
 import { GameSimulation } from "./simulation/GameSimulation";
-import { validationStages } from "./stage";
+import {
+  representativeStageShots,
+  validationStages,
+} from "./stage";
 
-const representativeShots = [
-  { angle: 55, speed: 650, wallId: "right" },
-  { angle: 76, speed: 500, wallId: "bottom" },
-  { angle: 35, speed: 860, wallId: "right" },
-  { angle: 125, speed: 700, wallId: "left" },
-  { angle: 48, speed: 690, wallId: "right" },
-] as const;
-
-function playShot(
-  stageIndex: number,
-  speed: number = representativeShots[stageIndex].speed,
-): { simulation: GameSimulation; wallId: string | null } {
+function playStage(stageIndex: number): {
+  simulation: GameSimulation;
+  wallIds: string[];
+  completedShots: boolean[];
+} {
   const simulation = new GameSimulation(validationStages[stageIndex]);
-  const shot = representativeShots[stageIndex];
-  let wallId: string | null = null;
-  simulation.state.skewers -= 1;
-  simulation.state.skewer = createSkewer(cannon, shot.angle, speed);
+  const wallIds: string[] = [];
+  const completedShots: boolean[] = [];
 
-  for (let step = 0; step < 2400 && simulation.state.status === "playing"; step += 1) {
-    const result = simulation.update(1 / 120);
-    if (result.wallHit) wallId = result.wallHit.wallId;
+  for (const shot of representativeStageShots[stageIndex]) {
+    simulation.state.skewers -= 1;
+    simulation.state.skewer = createSkewer(cannon, shot.angle, shot.speed);
+
+    for (
+      let step = 0;
+      step < 2400 &&
+      simulation.state.skewer &&
+      simulation.state.status === "playing";
+      step += 1
+    ) {
+      const result = simulation.update(1 / 120);
+      if (result.wallHit) wallIds.push(result.wallHit.wallId);
+      if (result.shotEnded) completedShots.push(result.completedSkewer);
+    }
   }
-  return { simulation, wallId };
+
+  return { simulation, wallIds, completedShots };
 }
 
-describe("M3 validation stages", () => {
-  it("defines five hand-authored stages with valid target groups", () => {
-    expect(validationStages).toHaveLength(5);
+describe("M5 stages", () => {
+  it("defines fifteen hand-authored stages in three chapters", () => {
+    expect(validationStages).toHaveLength(15);
+    expect(validationStages.filter((stage) => stage.chapter === 1)).toHaveLength(5);
+    expect(validationStages.filter((stage) => stage.chapter === 2)).toHaveLength(5);
+    expect(validationStages.filter((stage) => stage.chapter === 3)).toHaveLength(5);
+
     for (const stage of validationStages) {
       expect(stage.balls.length).toBeGreaterThan(0);
       expect(stage.balls.length % 3).toBe(0);
       expect(stage.skewers).toBeGreaterThanOrEqual(stage.balls.length / 3);
       expect(stage.name).toBeTruthy();
       expect(stage.objective).toBeTruthy();
+      expect(stage.scoringWallIds?.length).toBeGreaterThan(0);
     }
+  });
+
+  it("introduces multiple scoring walls and moving balls", () => {
+    expect(
+      validationStages.some((stage) => (stage.scoringWallIds?.length ?? 0) > 1),
+    ).toBe(true);
+    expect(
+      validationStages.some((stage) => stage.balls.some((ball) => ball.motion)),
+    ).toBe(true);
   });
 
   it.each(validationStages.map((stage, index) => [stage.name, index] as const))(
     "%s has a reproducible representative clear route",
     (_name, stageIndex) => {
-      const { simulation, wallId } = playShot(stageIndex);
+      const { simulation, wallIds, completedShots } = playStage(stageIndex);
+      const scoringWalls = validationStages[stageIndex].scoringWallIds ?? [];
 
-      expect(simulation.state.status).toBe("won");
-      expect(simulation.state.balls.every((ball) => !ball.available)).toBe(true);
-      expect(simulation.state.score).toBeGreaterThanOrEqual(600);
-      expect(wallId).toBe(representativeShots[stageIndex].wallId);
+      expect(
+        {
+          status: simulation.state.status,
+          availableBalls: simulation.state.balls.filter((ball) => ball.available).length,
+          wallIds,
+          completedShots,
+        },
+      ).toEqual({
+        status: "won",
+        availableBalls: 0,
+        completedShots: representativeStageShots[stageIndex].map(() => true),
+        wallIds: expect.arrayContaining(
+          representativeStageShots[stageIndex].map(() =>
+            expect.stringMatching(new RegExp(`^(${scoringWalls.join("|")})$`)),
+          ),
+        ),
+      });
     },
   );
 
-  it("does not make maximum charge the shared solution", () => {
-    const maximumChargeClears = validationStages.filter((_stage, index) => {
-      const simulation = new GameSimulation(validationStages[index]);
-      return playShot(index, simulation.getConfig().maxLaunchSpeed).simulation.state.status === "won";
+  it("does not make maximum charge the shared opening solution", () => {
+    const maximumChargeOpeningClears = validationStages.filter((stage, index) => {
+      const simulation = new GameSimulation(stage);
+      const shot = representativeStageShots[index][0];
+      simulation.state.skewers -= 1;
+      simulation.state.skewer = createSkewer(
+        cannon,
+        shot.angle,
+        simulation.getConfig().maxLaunchSpeed,
+      );
+
+      for (let step = 0; step < 2400 && simulation.state.skewer; step += 1) {
+        simulation.update(1 / 120);
+      }
+      return simulation.state.balls.filter((ball) => !ball.available).length >= 3;
     }).length;
 
-    expect(maximumChargeClears).toBeLessThan(validationStages.length);
-    expect(new Set(representativeShots.map((shot) => shot.speed)).size).toBeGreaterThan(3);
+    expect(maximumChargeOpeningClears).toBeLessThan(validationStages.length / 2);
+    expect(
+      new Set(representativeStageShots.flat().map((shot) => shot.speed)).size,
+    ).toBeGreaterThan(8);
   });
 });

@@ -43,9 +43,11 @@ export interface SkewerState {
 export interface BallState {
   id: string;
   position: Vec2;
+  basePosition: Vec2;
   radius: number;
   available: boolean;
   color: "white" | "pink" | "green";
+  motion?: BallMotionDefinition;
 }
 
 export interface BombState {
@@ -98,12 +100,21 @@ export interface ObstacleDefinition {
 
 export interface BallDefinition extends TargetDefinition {
   color: BallState["color"];
+  motion?: BallMotionDefinition;
+}
+
+export interface BallMotionDefinition {
+  axis: "x" | "y";
+  amplitude: number;
+  periodSeconds: number;
+  phase?: number;
 }
 
 export interface StageDefinition {
   id: string;
   name?: string;
   objective?: string;
+  chapter?: 1 | 2 | 3;
   skewers: number;
   targetScore: number;
   balls: BallDefinition[];

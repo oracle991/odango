@@ -49,6 +49,7 @@ export class GameSimulation {
 
     this.accumulator += Math.min(deltaSeconds, 0.1);
     while (this.accumulator >= this.config.fixedStepSeconds) {
+      this.updateMovingBalls();
       const skewer = this.state.skewer;
       if (skewer?.active) {
         const start = { ...skewer.position };
@@ -180,9 +181,11 @@ export class GameSimulation {
       balls: this.stage.balls.map((ball) => ({
         id: ball.id,
         position: { x: ball.x, y: ball.y },
+        basePosition: { x: ball.x, y: ball.y },
         radius: ball.radius,
         available: true,
         color: ball.color,
+        motion: ball.motion,
       })),
       bombs: this.stage.bombs.map((bomb) => ({
         id: bomb.id,
@@ -256,6 +259,20 @@ export class GameSimulation {
     }
   }
 
+  private updateMovingBalls(): void {
+    for (const ball of this.state.balls) {
+      if (!ball.available || !ball.motion) continue;
+      const phase =
+        (this.state.elapsedSeconds / ball.motion.periodSeconds) * Math.PI * 2 +
+        (ball.motion.phase ?? 0);
+      const offset = Math.sin(phase) * ball.motion.amplitude;
+      ball.position.x =
+        ball.basePosition.x + (ball.motion.axis === "x" ? offset : 0);
+      ball.position.y =
+        ball.basePosition.y + (ball.motion.axis === "y" ? offset : 0);
+    }
+  }
+
   private finishSkewer(result: SimulationUpdate): boolean {
     const skewer = this.state.skewer;
     if (!skewer) return false;
@@ -271,7 +288,10 @@ export class GameSimulation {
 
     for (const ballId of skewer.attachedBallIds) {
       const ball = this.state.balls.find((candidate) => candidate.id === ballId);
-      if (ball) ball.available = true;
+      if (ball) {
+        ball.available = true;
+        ball.position = { ...ball.basePosition };
+      }
     }
     result.restoredBalls = skewer.attachedBallIds.length > 0;
     return false;

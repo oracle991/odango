@@ -143,6 +143,50 @@ describe("three-ball core rules", () => {
     expect(simulation.state.status).toBe("playing");
   });
 
+  it("accepts any explicitly configured scoring wall and rejects other walls", () => {
+    const balls = [
+      ball("a", arena.right - 72),
+      ball("b", arena.right - 50),
+      ball("c", arena.right - 28),
+    ];
+    const rejected = new GameSimulation({
+      ...createStage(balls),
+      scoringWallIds: ["left"],
+    });
+    fireTestSkewer(rejected);
+    expect(rejected.update(1 / 120).completedSkewer).toBe(false);
+
+    const accepted = new GameSimulation({
+      ...createStage(balls),
+      scoringWallIds: ["left", "right"],
+    });
+    fireTestSkewer(accepted);
+    expect(accepted.update(1 / 120).completedSkewer).toBe(true);
+  });
+
+  it("moves configured balls deterministically and restores their origin on retry", () => {
+    const simulation = new GameSimulation(
+      createStage([
+        {
+          ...ball("moving", 400),
+          motion: {
+            axis: "x",
+            amplitude: 10,
+            periodSeconds: 1,
+          },
+        },
+        ball("b", 500),
+        ball("c", 600),
+      ]),
+    );
+
+    simulation.update(0.25);
+    expect(simulation.state.balls[0].position.x).toBeCloseTo(410, 5);
+
+    simulation.reset();
+    expect(simulation.state.balls[0].position).toEqual({ x: 400, y: 200 });
+  });
+
   it("restores one or two collected balls when the skewer ends incomplete", () => {
     const simulation = new GameSimulation(
       createStage([
