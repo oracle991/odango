@@ -32,6 +32,11 @@ interface ImpactFx {
   life: number;
 }
 
+interface GameSettings {
+  screenShake: boolean;
+  trajectoryAssist: boolean;
+}
+
 const ballColors: Record<BallState["color"], number> = {
   white: 0xfff8e8,
   pink: 0xf5a3a7,
@@ -49,7 +54,8 @@ export class PlayScene extends Phaser.Scene {
   private skewerGraphics!: Phaser.GameObjects.Graphics;
   private fxGraphics!: Phaser.GameObjects.Graphics;
   private spaceKey!: Phaser.Input.Keyboard.Key;
-  private debugVisible = true;
+  private trajectoryAssist = true;
+  private screenShake = true;
   private lastPreviewKey = "";
   private impacts: ImpactFx[] = [];
   private lastShotResult: HudDetail["shotResult"] = null;
@@ -78,12 +84,14 @@ export class PlayScene extends Phaser.Scene {
     keyboard.on("keydown-P", () => this.handleCommand("previous-stage"));
     keyboard.on("keydown-N", () => this.handleCommand("next-stage"));
     keyboard.on("keydown-D", () => {
-      this.debugVisible = !this.debugVisible;
+      this.trajectoryAssist = !this.trajectoryAssist;
       this.lastPreviewKey = "";
     });
     gameEvents.addEventListener("command", this.onCommand);
+    window.addEventListener("odango-settings", this.onSettings);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       gameEvents.removeEventListener("command", this.onCommand);
+      window.removeEventListener("odango-settings", this.onSettings);
     });
 
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
@@ -97,25 +105,35 @@ export class PlayScene extends Phaser.Scene {
       }
     });
     this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
-      if (!pointer.wasTouch) this.simulation.releaseCharge();
+      if (!pointer.wasTouch) this.releaseCharge();
     });
     window.dispatchEvent(new CustomEvent("odango-ready"));
   }
 
   update(_time: number, deltaMilliseconds: number): void {
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) this.simulation.beginCharge();
-    if (Phaser.Input.Keyboard.JustUp(this.spaceKey)) this.simulation.releaseCharge();
+    if (Phaser.Input.Keyboard.JustUp(this.spaceKey)) this.releaseCharge();
 
     const result = this.simulation.update(deltaMilliseconds / 1000);
+    let attachedCount =
+      (this.simulation.state.skewer?.attachedBallIds.length ?? 0) - result.ballHits.length;
     for (const hit of result.ballHits) {
+      attachedCount += 1;
       this.impacts.push({ ...hit, kind: "ball", life: 1 });
+      this.emitFeedback("ball", attachedCount);
     }
     if (result.bombHit) {
       this.impacts.push({ ...result.bombHit, kind: "bomb", life: 1 });
+      this.emitFeedback("bomb");
+      if (this.screenShake) this.cameras.main.shake(260, 0.012);
     }
     if (result.wallHit) {
       const kind = result.completedSkewer ? "complete" : "incomplete";
       this.impacts.push({ ...result.wallHit, kind, life: 1 });
+      this.emitFeedback(kind);
+      if (result.completedSkewer && this.screenShake) {
+        this.cameras.main.shake(180, 0.005);
+      }
     }
     if (result.shotEnded) {
       this.lastShotResult = result.completedSkewer ? "complete" : "incomplete";
@@ -141,13 +159,24 @@ export class PlayScene extends Phaser.Scene {
     this.handleCommand((event as CustomEvent<GameCommand>).detail);
   };
 
+  private readonly onSettings = (event: Event): void => {
+    const detail = (event as CustomEvent<GameSettings>).detail;
+    this.screenShake = detail.screenShake;
+    this.trajectoryAssist = detail.trajectoryAssist;
+    this.lastPreviewKey = "";
+  };
+
   private handleCommand(command: GameCommand): void {
+    if (typeof command !== "string") {
+      if (command.type === "load-stage") this.loadStage(command.stageIndex);
+      return;
+    }
     switch (command) {
       case "charge-start":
         this.simulation.beginCharge();
         break;
       case "charge-release":
-        this.simulation.releaseCharge();
+        this.releaseCharge();
         break;
       case "pause":
         if (!this.simulation.state.paused) this.setPaused(true);
@@ -171,6 +200,10 @@ export class PlayScene extends Phaser.Scene {
     this.stageIndex = Phaser.Math.Wrap(index, 0, validationStages.length);
     this.simulation = new GameSimulation(validationStages[this.stageIndex]);
     this.resetStage();
+  }
+
+  private releaseCharge(): void {
+    if (this.simulation.releaseCharge()) this.emitFeedback("launch");
   }
 
   private resetStage(): void {
@@ -330,6 +363,7 @@ export class PlayScene extends Phaser.Scene {
       g.fillCircle(x, y + float, ball.radius);
       g.lineStyle(3, 0x5d3948, 0.8);
       g.strokeCircle(x, y + float, ball.radius);
+      this.drawBallMark(g, ball.color, x, y + float);
       g.fillStyle(0x5d3948, 1);
       g.fillCircle(x - 6, y + float - 4, 2);
       g.fillCircle(x + 6, y + float - 4, 2);
@@ -387,6 +421,7 @@ export class PlayScene extends Phaser.Scene {
       g.fillCircle(x, y, 18);
       g.lineStyle(3, 0x5d3948, 0.85);
       g.strokeCircle(x, y, 18);
+      this.drawBallMark(g, ball.color, x, y);
     });
 
     const indicatorY = skewer.position.y - 42;
@@ -406,14 +441,14 @@ export class PlayScene extends Phaser.Scene {
     const speed = Math.round(
       chargeToSpeed(this.simulation.state.chargeSeconds, config) / 5,
     ) * 5;
-    const key = `${angle}:${speed}:${this.debugVisible}:${Boolean(this.simulation.state.skewer)}:${this.simulation.state.status}`;
+    const key = `${angle}:${speed}:${this.trajectoryAssist}:${Boolean(this.simulation.state.skewer)}:${this.simulation.state.status}`;
     if (key === this.lastPreviewKey) return;
     this.lastPreviewKey = key;
 
     const g = this.trajectoryGraphics;
     g.clear();
     if (
-      !this.debugVisible ||
+      !this.trajectoryAssist ||
       this.simulation.state.skewer ||
       this.simulation.state.status !== "playing"
     ) {
@@ -460,7 +495,45 @@ export class PlayScene extends Phaser.Scene {
         g.fillStyle(color, impact.life * 0.25);
         g.fillCircle(impact.x, impact.y, 54 * impact.life);
       }
+      const rayCount = impact.kind === "complete" ? 12 : impact.kind === "ball" ? 6 : 8;
+      for (let i = 0; i < rayCount; i += 1) {
+        const angle = (Math.PI * 2 * i) / rayCount;
+        const inner = 18 + (1 - impact.life) * 22;
+        const outer = inner + (impact.kind === "complete" ? 18 : 10);
+        g.lineStyle(3, color, impact.life);
+        g.lineBetween(
+          impact.x + Math.cos(angle) * inner,
+          impact.y + Math.sin(angle) * inner,
+          impact.x + Math.cos(angle) * outer,
+          impact.y + Math.sin(angle) * outer,
+        );
+      }
     }
+  }
+
+  private drawBallMark(
+    graphics: Phaser.GameObjects.Graphics,
+    color: BallState["color"],
+    x: number,
+    y: number,
+  ): void {
+    graphics.lineStyle(3, 0x5d3948, 0.8);
+    if (color === "white") {
+      graphics.strokeCircle(x, y + 7, 4);
+    } else if (color === "pink") {
+      graphics.lineBetween(x - 7, y + 7, x + 7, y + 7);
+    } else {
+      graphics.strokeTriangle(x, y + 1, x - 6, y + 11, x + 6, y + 11);
+    }
+  }
+
+  private emitFeedback(
+    kind: "ball" | "bomb" | "complete" | "incomplete" | "launch",
+    count?: number,
+  ): void {
+    window.dispatchEvent(
+      new CustomEvent("odango-feedback", { detail: { kind, count } }),
+    );
   }
 
   private emitHud(): void {

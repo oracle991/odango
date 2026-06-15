@@ -8,24 +8,27 @@
   </head>
   <body>
     <main id="app">
-      <section class="game-shell" aria-label="おだんご重力砲台">
-        <header class="hud">
-          <div>
-            <p class="eyebrow">M3 LEVEL VALIDATION</p>
+      <section class="game-shell is-menu-open" aria-label="おだんご重力砲台">
+        <div id="game" class="game-canvas"></div>
+        <div class="paper-texture" aria-hidden="true"></div>
+
+        <header id="hud" class="hud" hidden>
+          <div class="brand">
+            <p class="eyebrow">ODANGO GRAVITY CANNON</p>
             <h1>おだんご重力砲台</h1>
           </div>
           <div class="readouts" aria-live="polite">
             <span><b id="score-value">0</b><small>スコア</small></span>
-            <span><b id="ball-value">6</b><small>残り球</small></span>
-            <span><b id="ammo-value">6</b><small>残り串</small></span>
-            <span><b id="skewer-value">0 / 3</b><small>串の球</small></span>
+            <span><b id="ball-value">3</b><small>残り球</small></span>
+            <span><b id="ammo-value">4</b><small>残り串</small></span>
+            <span class="skewer-readout">
+              <b id="skewer-value">○ ○ ○</b><small>串の球</small>
+            </span>
           </div>
           <button id="pause-button" class="icon-button" type="button" aria-label="ポーズ">Ⅱ</button>
         </header>
 
-        <div id="game" class="game-canvas"></div>
-
-        <nav class="stage-nav" aria-label="検証ステージ">
+        <nav id="stage-nav" class="stage-nav" aria-label="現在のステージ" hidden>
           <button id="previous-stage" type="button" aria-label="前のステージ">←</button>
           <div>
             <small id="stage-counter">STAGE 1 / 5</small>
@@ -35,38 +38,96 @@
           <button id="next-stage" type="button" aria-label="次のステージ">→</button>
         </nav>
 
-        <aside id="help-card" class="help-card">
-          <p class="eyebrow">HOW TO FIRE</p>
-          <p>カーソルまたはプレイ領域のタップで照準。<kbd>Space</kbd>、左クリック、発射ボタンを長押しして離すと発射します。</p>
-          <button id="dismiss-help" type="button">了解</button>
+        <aside id="help-card" class="help-card" hidden>
+          <p class="eyebrow">HOW TO PLAY</p>
+          <p><strong>① 狙う</strong> プレイ領域をカーソル移動・タップ</p>
+          <p><strong>② ためる</strong> <kbd>Space</kbd>・左クリック・発射ボタンを長押し</p>
+          <p><strong>③ 届ける</strong> 串先端で3個刺し、光る壁へ</p>
+          <button id="dismiss-help" type="button">遊んでみる</button>
         </aside>
 
-        <div id="pause-panel" class="pause-panel" hidden>
-          <p class="eyebrow">PAUSED</p>
-          <h2>ひとやすみ</h2>
-          <button id="resume-button" type="button">つづける</button>
-          <button id="retry-button" class="secondary" type="button">やりなおす</button>
+        <div id="feedback-banner" class="feedback-banner" role="status" aria-live="assertive">
+          <span id="feedback-symbol">●</span>
+          <strong id="feedback-copy">一個目！</strong>
         </div>
 
-        <div id="result-panel" class="result-panel" hidden>
+        <section id="title-screen" class="menu-screen title-screen" aria-labelledby="title-heading">
+          <div class="title-mark" aria-hidden="true">
+            <i class="dango dango-white"></i>
+            <i class="dango dango-pink"></i>
+            <i class="dango dango-green"></i>
+          </div>
+          <p class="eyebrow">PHYSICS PUZZLE</p>
+          <h2 id="title-heading">おだんご<br />重力砲台</h2>
+          <p class="title-lead">狙って、ためて、三個つなぐ。<br />完成したおだんごを壁まで届けよう。</p>
+          <button id="start-button" class="primary-button" type="button">はじめる</button>
+          <button class="text-button open-settings" type="button">設定</button>
+        </section>
+
+        <section id="stage-screen" class="menu-screen stage-screen" aria-labelledby="stage-select-heading" hidden>
+          <p class="eyebrow">SELECT STAGE</p>
+          <h2 id="stage-select-heading">検証ステージ</h2>
+          <p>軌道の違う5つの課題から選んでください。</p>
+          <div id="stage-grid" class="stage-grid"></div>
+          <div class="menu-actions">
+            <button id="stage-back-button" class="secondary-button" type="button">タイトルへ</button>
+            <button class="secondary-button open-settings" type="button">設定</button>
+          </div>
+        </section>
+
+        <div id="pause-panel" class="modal-panel" hidden>
+          <p class="eyebrow">PAUSED</p>
+          <h2>ひとやすみ</h2>
+          <button id="resume-button" class="primary-button" type="button">つづける</button>
+          <button id="retry-button" class="secondary-button" type="button">最初から</button>
+          <button id="pause-stage-button" class="secondary-button" type="button">ステージ選択</button>
+          <button class="text-button open-settings" type="button">設定</button>
+        </div>
+
+        <div id="result-panel" class="modal-panel result-panel" hidden>
           <p id="result-eyebrow" class="eyebrow">STAGE CLEAR</p>
           <h2 id="result-title">おみごと！</h2>
           <div class="result-summary">
             <span><small>SCORE</small><b id="result-score">0</b></span>
             <span><small>RANK</small><b id="result-rank">B</b></span>
           </div>
-          <button id="result-retry-button" type="button">もう一度あそぶ</button>
-          <button id="result-next-button" class="secondary" type="button">次の検証ステージ</button>
+          <p id="result-message" class="result-message">三色だんごをすべて届けました。</p>
+          <button id="result-next-button" class="primary-button" type="button">次のステージ</button>
+          <button id="result-retry-button" class="secondary-button" type="button">もう一度</button>
+          <button id="result-stage-button" class="text-button" type="button">ステージ選択</button>
         </div>
 
-        <footer class="controls">
+        <div id="settings-panel" class="modal-panel settings-panel" hidden>
+          <p class="eyebrow">SETTINGS</p>
+          <h2>設定</h2>
+          <label>
+            <span>BGM音量 <output id="bgm-output">30</output></span>
+            <input id="bgm-volume" type="range" min="0" max="100" value="30" />
+          </label>
+          <label>
+            <span>効果音音量 <output id="sfx-output">70</output></span>
+            <input id="sfx-volume" type="range" min="0" max="100" value="70" />
+          </label>
+          <label class="toggle-row">
+            <span>画面揺れ</span>
+            <input id="screen-shake" type="checkbox" checked />
+          </label>
+          <label class="toggle-row">
+            <span>軌道補助</span>
+            <input id="trajectory-assist" type="checkbox" checked />
+          </label>
+          <button id="settings-close-button" class="primary-button" type="button">閉じる</button>
+          <button id="reset-data-button" class="text-button danger" type="button">設定データを初期化</button>
+        </div>
+
+        <footer id="controls" class="controls" hidden>
           <div class="charge-copy">
             <span>CHARGE</span>
-            <div class="charge-track"><i id="charge-fill"></i></div>
+            <div class="charge-track" aria-label="チャージ量"><i id="charge-fill"></i></div>
             <small id="status-copy">狙いを定めています</small>
           </div>
-          <button id="fire-button" class="fire-button" type="button">
-            <span>押してためる</span>
+          <button id="fire-button" class="fire-button" type="button" aria-label="長押しでチャージ、離して発射">
+            <span>長押し</span>
             <b>発射</b>
           </button>
         </footer>

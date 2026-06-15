@@ -1,4 +1,4 @@
-export type GameCommand =
+export type SimpleGameCommand =
   | "charge-start"
   | "charge-release"
   | "pause"
@@ -6,6 +6,10 @@ export type GameCommand =
   | "retry"
   | "previous-stage"
   | "next-stage";
+
+export type GameCommand =
+  | SimpleGameCommand
+  | { type: "load-stage"; stageIndex: number };
 
 export const gameEvents = new EventTarget();
 

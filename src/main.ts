@@ -1,8 +1,55 @@
 import Phaser from "phaser";
-import { sendGameCommand } from "./game/input/gameEvents";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "./game/config";
+import { sendGameCommand } from "./game/input/gameEvents";
+import { validationStages } from "./game/stage";
 import { PlayScene } from "./phaser/scenes/PlayScene";
 import "./styles.css";
+
+type GameStatus = "playing" | "won" | "lost";
+type FeedbackKind = "ball" | "complete" | "incomplete" | "bomb" | "launch";
+type ScreenName = "title" | "stage" | "play";
+
+interface HudDetail {
+  angle: number;
+  speed: number;
+  charging: boolean;
+  charge: number;
+  skewerActive: boolean;
+  attachedBalls: number;
+  score: number;
+  skewers: number;
+  balls: number;
+  status: GameStatus;
+  targetScore: number;
+  shotResult: "complete" | "incomplete" | null;
+  stageIndex: number;
+  stageCount: number;
+  stageName: string;
+  stageObjective: string;
+}
+
+interface FeedbackDetail {
+  kind: FeedbackKind;
+  count?: number;
+}
+
+interface GameSettings {
+  bgmVolume: number;
+  sfxVolume: number;
+  screenShake: boolean;
+  trajectoryAssist: boolean;
+}
+
+const settingsKey = "odango-settings";
+const defaultSettings: GameSettings = {
+  bgmVolume: 0.3,
+  sfxVolume: 0.7,
+  screenShake: true,
+  trajectoryAssist: true,
+};
+
+const query = <T extends Element>(selector: string): T | null =>
+  document.querySelector<T>(selector);
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -21,81 +68,302 @@ const game = new Phaser.Game({
   },
 });
 
-const scoreValue = document.querySelector<HTMLElement>("#score-value");
-const ballValue = document.querySelector<HTMLElement>("#ball-value");
-const ammoValue = document.querySelector<HTMLElement>("#ammo-value");
-const skewerValue = document.querySelector<HTMLElement>("#skewer-value");
-const chargeFill = document.querySelector<HTMLElement>("#charge-fill");
-const statusCopy = document.querySelector<HTMLElement>("#status-copy");
-const fireButton = document.querySelector<HTMLButtonElement>("#fire-button");
-const pauseButton = document.querySelector<HTMLButtonElement>("#pause-button");
-const pausePanel = document.querySelector<HTMLElement>("#pause-panel");
-const resumeButton = document.querySelector<HTMLButtonElement>("#resume-button");
-const retryButton = document.querySelector<HTMLButtonElement>("#retry-button");
-const dismissHelp = document.querySelector<HTMLButtonElement>("#dismiss-help");
-const helpCard = document.querySelector<HTMLElement>("#help-card");
-const resultPanel = document.querySelector<HTMLElement>("#result-panel");
-const resultEyebrow = document.querySelector<HTMLElement>("#result-eyebrow");
-const resultTitle = document.querySelector<HTMLElement>("#result-title");
-const resultScore = document.querySelector<HTMLElement>("#result-score");
-const resultRank = document.querySelector<HTMLElement>("#result-rank");
-const resultRetryButton = document.querySelector<HTMLButtonElement>("#result-retry-button");
-const resultNextButton = document.querySelector<HTMLButtonElement>("#result-next-button");
-const previousStageButton = document.querySelector<HTMLButtonElement>("#previous-stage");
-const nextStageButton = document.querySelector<HTMLButtonElement>("#next-stage");
-const stageCounter = document.querySelector<HTMLElement>("#stage-counter");
-const stageName = document.querySelector<HTMLElement>("#stage-name");
-const stageObjective = document.querySelector<HTMLElement>("#stage-objective");
+const shell = query<HTMLElement>(".game-shell");
+const hud = query<HTMLElement>("#hud");
+const controls = query<HTMLElement>("#controls");
+const stageNav = query<HTMLElement>("#stage-nav");
+const titleScreen = query<HTMLElement>("#title-screen");
+const stageScreen = query<HTMLElement>("#stage-screen");
+const pausePanel = query<HTMLElement>("#pause-panel");
+const resultPanel = query<HTMLElement>("#result-panel");
+const settingsPanel = query<HTMLElement>("#settings-panel");
+const helpCard = query<HTMLElement>("#help-card");
+const feedbackBanner = query<HTMLElement>("#feedback-banner");
 
-interface HudDetail {
-  angle: number;
-  speed: number;
-  charging: boolean;
-  charge: number;
-  skewerActive: boolean;
-  attachedBalls: number;
-  score: number;
-  skewers: number;
-  balls: number;
-  status: "playing" | "won" | "lost";
-  targetScore: number;
-  shotResult: "complete" | "incomplete" | null;
-  stageIndex: number;
-  stageCount: number;
-  stageName: string;
-  stageObjective: string;
+const scoreValue = query<HTMLElement>("#score-value");
+const ballValue = query<HTMLElement>("#ball-value");
+const ammoValue = query<HTMLElement>("#ammo-value");
+const skewerValue = query<HTMLElement>("#skewer-value");
+const chargeFill = query<HTMLElement>("#charge-fill");
+const statusCopy = query<HTMLElement>("#status-copy");
+const fireButton = query<HTMLButtonElement>("#fire-button");
+const resultEyebrow = query<HTMLElement>("#result-eyebrow");
+const resultTitle = query<HTMLElement>("#result-title");
+const resultScore = query<HTMLElement>("#result-score");
+const resultRank = query<HTMLElement>("#result-rank");
+const resultMessage = query<HTMLElement>("#result-message");
+const stageCounter = query<HTMLElement>("#stage-counter");
+const stageName = query<HTMLElement>("#stage-name");
+const stageObjective = query<HTMLElement>("#stage-objective");
+const stageGrid = query<HTMLElement>("#stage-grid");
+const feedbackSymbol = query<HTMLElement>("#feedback-symbol");
+const feedbackCopy = query<HTMLElement>("#feedback-copy");
+
+const bgmVolume = query<HTMLInputElement>("#bgm-volume");
+const sfxVolume = query<HTMLInputElement>("#sfx-volume");
+const screenShake = query<HTMLInputElement>("#screen-shake");
+const trajectoryAssist = query<HTMLInputElement>("#trajectory-assist");
+const bgmOutput = query<HTMLOutputElement>("#bgm-output");
+const sfxOutput = query<HTMLOutputElement>("#sfx-output");
+
+let currentScreen: ScreenName = "title";
+let currentStageIndex = 0;
+let settingsReturnScreen: ScreenName = "title";
+let feedbackTimer = 0;
+let wasCharging = false;
+let settings = loadSettings();
+
+class AudioController {
+  private context: AudioContext | null = null;
+  private chargeOscillator: OscillatorNode | null = null;
+  private chargeGain: GainNode | null = null;
+  private bgmTimer = 0;
+  private bgmStep = 0;
+
+  async unlock(): Promise<void> {
+    if (!this.context) this.context = new AudioContext();
+    if (this.context.state === "suspended") await this.context.resume();
+  }
+
+  setPlaying(playing: boolean): void {
+    window.clearInterval(this.bgmTimer);
+    this.bgmTimer = 0;
+    if (!playing || settings.bgmVolume <= 0) return;
+    this.bgmTimer = window.setInterval(() => {
+      const notes = [293.66, 392, 440, 392, 329.63, 392];
+      this.tone(notes[this.bgmStep % notes.length], 0.16, settings.bgmVolume * 0.1, "sine");
+      this.bgmStep += 1;
+    }, 620);
+  }
+
+  startCharge(): void {
+    void this.unlock().then(() => {
+      if (!this.context || this.chargeOscillator || settings.sfxVolume <= 0) return;
+      const oscillator = this.context.createOscillator();
+      const gain = this.context.createGain();
+      oscillator.type = "triangle";
+      oscillator.frequency.value = 180;
+      gain.gain.value = settings.sfxVolume * 0.045;
+      oscillator.connect(gain).connect(this.context.destination);
+      oscillator.start();
+      this.chargeOscillator = oscillator;
+      this.chargeGain = gain;
+    });
+  }
+
+  updateCharge(progress: number): void {
+    if (!this.context || !this.chargeOscillator) return;
+    this.chargeOscillator.frequency.setTargetAtTime(
+      180 + progress * 420,
+      this.context.currentTime,
+      0.03,
+    );
+  }
+
+  stopCharge(): void {
+    if (!this.context || !this.chargeOscillator || !this.chargeGain) return;
+    const now = this.context.currentTime;
+    this.chargeGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+    this.chargeOscillator.stop(now + 0.07);
+    this.chargeOscillator = null;
+    this.chargeGain = null;
+  }
+
+  feedback(kind: FeedbackKind, count = 0): void {
+    void this.unlock().then(() => {
+      const volume = settings.sfxVolume * 0.18;
+      if (volume <= 0) return;
+      if (kind === "ball") {
+        this.tone([520, 660, 820][Math.max(0, count - 1)] ?? 520, 0.12, volume, "sine");
+      } else if (kind === "complete") {
+        this.tone(784, 0.22, volume, "triangle");
+        window.setTimeout(() => this.tone(1046, 0.25, volume, "triangle"), 90);
+      } else if (kind === "incomplete") {
+        this.tone(180, 0.18, volume * 0.7, "square");
+      } else if (kind === "bomb") {
+        this.tone(72, 0.42, volume, "sawtooth");
+      } else if (kind === "launch") {
+        this.tone(360, 0.08, volume * 0.6, "triangle");
+      }
+    });
+  }
+
+  private tone(
+    frequency: number,
+    duration: number,
+    volume: number,
+    type: OscillatorType,
+  ): void {
+    if (!this.context) return;
+    const oscillator = this.context.createOscillator();
+    const gain = this.context.createGain();
+    const now = this.context.currentTime;
+    oscillator.type = type;
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(Math.max(0.0001, volume), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    oscillator.connect(gain).connect(this.context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + duration);
+  }
 }
+
+const audio = new AudioController();
+
+function loadSettings(): GameSettings {
+  try {
+    const saved = JSON.parse(localStorage.getItem(settingsKey) ?? "{}") as Partial<GameSettings>;
+    return { ...defaultSettings, ...saved };
+  } catch {
+    return { ...defaultSettings };
+  }
+}
+
+function saveSettings(): void {
+  localStorage.setItem(settingsKey, JSON.stringify(settings));
+  window.dispatchEvent(new CustomEvent<GameSettings>("odango-settings", { detail: settings }));
+}
+
+function syncSettingsForm(): void {
+  if (bgmVolume) bgmVolume.value = `${Math.round(settings.bgmVolume * 100)}`;
+  if (sfxVolume) sfxVolume.value = `${Math.round(settings.sfxVolume * 100)}`;
+  if (screenShake) screenShake.checked = settings.screenShake;
+  if (trajectoryAssist) trajectoryAssist.checked = settings.trajectoryAssist;
+  if (bgmOutput) bgmOutput.value = `${Math.round(settings.bgmVolume * 100)}`;
+  if (sfxOutput) sfxOutput.value = `${Math.round(settings.sfxVolume * 100)}`;
+}
+
+function setGameplayUi(visible: boolean): void {
+  if (hud) hud.hidden = !visible;
+  if (controls) controls.hidden = !visible;
+  if (stageNav) stageNav.hidden = !visible;
+  if (!visible && helpCard) helpCard.hidden = true;
+}
+
+function showScreen(screen: ScreenName, stageIndex = currentStageIndex): void {
+  currentScreen = screen;
+  if (titleScreen) titleScreen.hidden = screen !== "title";
+  if (stageScreen) stageScreen.hidden = screen !== "stage";
+  if (pausePanel) pausePanel.hidden = true;
+  if (resultPanel) resultPanel.hidden = true;
+  if (settingsPanel) settingsPanel.hidden = true;
+  shell?.classList.toggle("is-menu-open", screen !== "play");
+  setGameplayUi(screen === "play");
+
+  if (screen === "play") {
+    currentStageIndex = stageIndex;
+    sendGameCommand({ type: "load-stage", stageIndex });
+    if (helpCard) helpCard.hidden = sessionStorage.getItem("odango-help-seen") === "1";
+    audio.setPlaying(true);
+  } else {
+    sendGameCommand("pause");
+    audio.stopCharge();
+    audio.setPlaying(false);
+  }
+}
+
+function openSettings(): void {
+  settingsReturnScreen = currentScreen;
+  syncSettingsForm();
+  if (settingsPanel) settingsPanel.hidden = false;
+  if (currentScreen === "play") sendGameCommand("pause");
+}
+
+function closeSettings(): void {
+  if (settingsPanel) settingsPanel.hidden = true;
+  if (settingsReturnScreen === "play" && pausePanel) pausePanel.hidden = false;
+}
+
+function renderStageCards(): void {
+  if (!stageGrid) return;
+  stageGrid.replaceChildren();
+  validationStages.forEach((stage, index) => {
+    const button = document.createElement("button");
+    button.className = "stage-card";
+    button.type = "button";
+    button.innerHTML = `
+      <span>${String(index + 1).padStart(2, "0")}</span>
+      <strong>${stage.name ?? stage.id}</strong>
+      <small>${stage.objective ?? ""}</small>
+      <em>残り串 ${stage.skewers}</em>
+    `;
+    button.addEventListener("click", () => showScreen("play", index));
+    stageGrid.append(button);
+  });
+}
+
+function showFeedback(detail: FeedbackDetail): void {
+  const content: Record<FeedbackKind, { symbol: string; copy: string }> = {
+    ball: {
+      symbol: `${detail.count ?? 1}`,
+      copy: detail.count === 3 ? "三個そろった！ 壁まで届けよう" : `${detail.count ?? 1}個目を刺した！`,
+    },
+    complete: { symbol: "祝", copy: "三色だんご完成！ +600" },
+    incomplete: { symbol: "戻", copy: "未完成。おだんごは元の位置へ" },
+    bomb: { symbol: "危", copy: "爆弾！ 残り串とスコアにペナルティ" },
+    launch: { symbol: "→", copy: "発射！ 串先端で三個を狙おう" },
+  };
+  const item = content[detail.kind];
+  if (feedbackSymbol) feedbackSymbol.textContent = item.symbol;
+  if (feedbackCopy) feedbackCopy.textContent = item.copy;
+  if (feedbackBanner) {
+    feedbackBanner.dataset.kind = detail.kind;
+    feedbackBanner.classList.remove("is-visible");
+    void feedbackBanner.offsetWidth;
+    feedbackBanner.classList.add("is-visible");
+  }
+  window.clearTimeout(feedbackTimer);
+  feedbackTimer = window.setTimeout(
+    () => feedbackBanner?.classList.remove("is-visible"),
+    detail.kind === "complete" ? 1800 : 1300,
+  );
+  audio.feedback(detail.kind, detail.count);
+}
+
+window.addEventListener("odango-ready", () => {
+  sendGameCommand("pause");
+  window.dispatchEvent(new CustomEvent<GameSettings>("odango-settings", { detail: settings }));
+});
 
 window.addEventListener("odango-hud", (event) => {
   const detail = (event as CustomEvent<HudDetail>).detail;
+  currentStageIndex = detail.stageIndex;
   if (scoreValue) scoreValue.textContent = detail.score.toLocaleString("ja-JP");
   if (ballValue) ballValue.textContent = `${detail.balls}`;
   if (ammoValue) ammoValue.textContent = `${detail.skewers}`;
-  if (skewerValue) skewerValue.textContent = `${detail.attachedBalls} / 3`;
-  if (stageCounter) {
-    stageCounter.textContent = `STAGE ${detail.stageIndex + 1} / ${detail.stageCount}`;
+  if (skewerValue) {
+    skewerValue.textContent = [0, 1, 2]
+      .map((index) => index < detail.attachedBalls ? "●" : "○")
+      .join(" ");
+    skewerValue.dataset.count = `${detail.attachedBalls}`;
   }
+  if (stageCounter) stageCounter.textContent = `STAGE ${detail.stageIndex + 1} / ${detail.stageCount}`;
   if (stageName) stageName.textContent = detail.stageName;
   if (stageObjective) stageObjective.textContent = detail.stageObjective;
   if (chargeFill) chargeFill.style.setProperty("--charge", `${detail.charge * 100}%`);
+  if (detail.charging && !wasCharging) audio.startCharge();
+  if (!detail.charging && wasCharging) audio.stopCharge();
+  wasCharging = detail.charging;
+  audio.updateCharge(detail.charge);
+
   if (fireButton) {
     fireButton.classList.toggle("is-charging", detail.charging);
-    fireButton.disabled = detail.skewerActive || detail.status !== "playing" || detail.skewers <= 0;
+    fireButton.disabled =
+      detail.skewerActive || detail.status !== "playing" || detail.skewers <= 0;
   }
   if (statusCopy) {
     statusCopy.textContent = detail.status !== "playing"
       ? "リザルトを確認してください"
-      : detail.shotResult === "complete"
-        ? "三色だんご完成！ 600点"
-      : detail.shotResult === "incomplete"
-        ? "未完成。球は元の位置へ戻ります"
-      : detail.skewerActive
-        ? `${detail.attachedBalls} / 3 個。壁まで届けよう`
-      : detail.charging
-        ? "狙いを調整し、離して発射"
-        : "カーソルやタップで狙い、串先端で3個刺そう";
+      : detail.attachedBalls === 3
+        ? "三個完成。壁に当てるまでが勝負"
+        : detail.skewerActive
+          ? `${detail.attachedBalls} / 3 個。串先端で続きを狙おう`
+          : detail.charging
+            ? "チャージ中。離すとこの角度で発射"
+            : "照準を決め、長押しでチャージ";
   }
-  if (resultPanel) {
+
+  if (resultPanel && currentScreen === "play") {
     resultPanel.hidden = detail.status === "playing";
     if (detail.status !== "playing") {
       const won = detail.status === "won";
@@ -105,20 +373,35 @@ window.addEventListener("odango-hud", (event) => {
       if (resultTitle) resultTitle.textContent = won ? "おみごと！" : "串切れです";
       if (resultScore) resultScore.textContent = detail.score.toLocaleString("ja-JP");
       if (resultRank) resultRank.textContent = rank;
+      if (resultMessage) {
+        resultMessage.textContent = won
+          ? "三色だんごをすべて壁へ届けました。"
+          : "角度かチャージを変えて、もう一度試してみよう。";
+      }
+      audio.setPlaying(false);
     }
   }
 });
 
-window.addEventListener("odango-pause", (event) => {
-  if (pausePanel) pausePanel.hidden = !(event as CustomEvent<boolean>).detail;
+window.addEventListener("odango-feedback", (event) => {
+  showFeedback((event as CustomEvent<FeedbackDetail>).detail);
 });
 
-const startCharge = (event: Event): void => {
+window.addEventListener("odango-pause", (event) => {
+  if (!pausePanel || currentScreen !== "play" || !settingsPanel?.hidden) return;
+  pausePanel.hidden = !(event as CustomEvent<boolean>).detail;
+});
+
+const startCharge = (event: PointerEvent): void => {
   event.preventDefault();
+  fireButton?.setPointerCapture(event.pointerId);
+  audio.startCharge();
   sendGameCommand("charge-start");
 };
-const releaseCharge = (event: Event): void => {
+
+const releaseCharge = (event: PointerEvent): void => {
   event.preventDefault();
+  audio.stopCharge();
   sendGameCommand("charge-release");
 };
 
@@ -126,14 +409,71 @@ fireButton?.addEventListener("pointerdown", startCharge);
 fireButton?.addEventListener("pointerup", releaseCharge);
 fireButton?.addEventListener("pointercancel", releaseCharge);
 fireButton?.addEventListener("contextmenu", (event) => event.preventDefault());
-pauseButton?.addEventListener("click", () => sendGameCommand("pause"));
-resumeButton?.addEventListener("click", () => sendGameCommand("resume"));
-retryButton?.addEventListener("click", () => sendGameCommand("retry"));
-resultRetryButton?.addEventListener("click", () => sendGameCommand("retry"));
-resultNextButton?.addEventListener("click", () => sendGameCommand("next-stage"));
-previousStageButton?.addEventListener("click", () => sendGameCommand("previous-stage"));
-nextStageButton?.addEventListener("click", () => sendGameCommand("next-stage"));
-dismissHelp?.addEventListener("click", () => helpCard?.classList.add("is-dismissed"));
+query("#pause-button")?.addEventListener("click", () => sendGameCommand("pause"));
+query("#resume-button")?.addEventListener("click", () => sendGameCommand("resume"));
+query("#retry-button")?.addEventListener("click", () => sendGameCommand("retry"));
+query("#result-retry-button")?.addEventListener("click", () => sendGameCommand("retry"));
+query("#result-next-button")?.addEventListener("click", () => {
+  showScreen("play", (currentStageIndex + 1) % validationStages.length);
+});
+query("#previous-stage")?.addEventListener("click", () => sendGameCommand("previous-stage"));
+query("#next-stage")?.addEventListener("click", () => sendGameCommand("next-stage"));
+query("#start-button")?.addEventListener("click", () => showScreen("stage"));
+query("#stage-back-button")?.addEventListener("click", () => showScreen("title"));
+query("#pause-stage-button")?.addEventListener("click", () => showScreen("stage"));
+query("#result-stage-button")?.addEventListener("click", () => showScreen("stage"));
+query("#dismiss-help")?.addEventListener("click", () => {
+  sessionStorage.setItem("odango-help-seen", "1");
+  if (helpCard) helpCard.hidden = true;
+});
 
-window.addEventListener("blur", () => sendGameCommand("pause"));
+document.querySelectorAll<HTMLButtonElement>(".open-settings").forEach((button) => {
+  button.addEventListener("click", openSettings);
+});
+query("#settings-close-button")?.addEventListener("click", closeSettings);
+query("#reset-data-button")?.addEventListener("click", () => {
+  settings = { ...defaultSettings };
+  localStorage.removeItem(settingsKey);
+  syncSettingsForm();
+  saveSettings();
+  audio.setPlaying(currentScreen === "play");
+});
+
+bgmVolume?.addEventListener("input", () => {
+  settings.bgmVolume = Number(bgmVolume.value) / 100;
+  if (bgmOutput) bgmOutput.value = bgmVolume.value;
+  saveSettings();
+  audio.setPlaying(currentScreen === "play");
+});
+sfxVolume?.addEventListener("input", () => {
+  settings.sfxVolume = Number(sfxVolume.value) / 100;
+  if (sfxOutput) sfxOutput.value = sfxVolume.value;
+  saveSettings();
+});
+screenShake?.addEventListener("change", () => {
+  settings.screenShake = screenShake.checked;
+  saveSettings();
+});
+trajectoryAssist?.addEventListener("change", () => {
+  settings.trajectoryAssist = trajectoryAssist.checked;
+  saveSettings();
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (settingsPanel && !settingsPanel.hidden) {
+    closeSettings();
+  } else if (currentScreen === "play") {
+    sendGameCommand("pause");
+  }
+});
+
+window.addEventListener("blur", () => {
+  audio.stopCharge();
+  if (currentScreen === "play") sendGameCommand("pause");
+});
 window.addEventListener("beforeunload", () => game.destroy(true));
+
+renderStageCards();
+syncSettingsForm();
+showScreen("title");
