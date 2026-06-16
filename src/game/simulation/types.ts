@@ -23,6 +23,8 @@ export interface SimulationConfig {
   tipRadius: number;
   skewerLength: number;
   ballSpacing: number;
+  attachedBallOffset: number;
+  attachedBallRadius: number;
   maxBallsPerSkewer: number;
   minChargeSeconds: number;
   maxChargeSeconds: number;

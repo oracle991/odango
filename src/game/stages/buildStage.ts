@@ -1,4 +1,9 @@
-import { cannon, simulationConfig } from "../config";
+import {
+  scoreConfig,
+  simulationConfig,
+  stageGenerationConfig,
+} from "../balance";
+import { cannon } from "../config";
 import { muzzlePosition } from "../simulation/physics";
 import type {
   BallDefinition,
@@ -6,8 +11,6 @@ import type {
   StageDefinition,
 } from "../simulation/types";
 import type { RepresentativeShot, StageRecipe } from "./types";
-
-const colors = ["white", "pink", "green"] as const;
 
 function trajectoryPoint(
   shot: RepresentativeShot,
@@ -28,26 +31,30 @@ function trajectoryPoint(
 function motionFor(groupIndex: number, ballIndex: number): BallMotionDefinition {
   return {
     axis: groupIndex % 2 === 0 ? "y" : "x",
-    amplitude: 6 + (ballIndex % 2) * 3,
-    periodSeconds: 2.4 + groupIndex * 0.35,
-    phase: ballIndex * 0.7,
+    amplitude:
+      stageGenerationConfig.motionBaseAmplitude +
+      (ballIndex % 2) * stageGenerationConfig.motionAlternateAmplitudeBonus,
+    periodSeconds:
+      stageGenerationConfig.motionBasePeriodSeconds +
+      groupIndex * stageGenerationConfig.motionPeriodStepSeconds,
+    phase: ballIndex * stageGenerationConfig.motionPhaseStep,
   };
 }
 
 function createBalls(recipe: StageRecipe): BallDefinition[] {
   const gravity = recipe.gravity ?? simulationConfig.gravity;
-  const defaultTimes = [0.38, 0.58, 0.78];
 
   return recipe.shots.flatMap((shot, groupIndex) => {
-    const times = recipe.times?.[groupIndex] ?? defaultTimes;
+    const times =
+      recipe.times?.[groupIndex] ?? stageGenerationConfig.defaultTrajectoryTimes;
     return times.map((time, ballIndex) => {
       const position = trajectoryPoint(shot, time, gravity);
       return {
         id: `${recipe.id}-${groupIndex + 1}-${ballIndex + 1}`,
         x: Math.round(position.x),
         y: Math.round(position.y),
-        radius: 20,
-        color: colors[ballIndex],
+        radius: stageGenerationConfig.targetBallRadius,
+        color: stageGenerationConfig.ballColors[ballIndex],
         motion: recipe.movingGroups?.includes(groupIndex)
           ? motionFor(groupIndex, ballIndex)
           : undefined,
@@ -57,8 +64,14 @@ function createBalls(recipe: StageRecipe): BallDefinition[] {
 }
 
 function targetScore(groups: number, spareSkewers: number): number {
-  const bestScore = groups * 600 + 1000 + spareSkewers * 300;
-  return Math.floor(bestScore / 12) * 10;
+  const bestScore =
+    groups * scoreConfig.completedSkewer +
+    scoreConfig.stageClearBonus +
+    spareSkewers * scoreConfig.remainingSkewerBonus;
+  return (
+    Math.floor(bestScore / scoreConfig.targetScoreDivisor) *
+    scoreConfig.targetScoreStep
+  );
 }
 
 export function createStage(recipe: StageRecipe): StageDefinition {

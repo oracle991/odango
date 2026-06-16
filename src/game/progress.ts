@@ -1,3 +1,5 @@
+import { rankConfig } from "./balance";
+
 export type StageRank = "S" | "A" | "B" | "C";
 
 export interface SavedStageProgress {
@@ -49,8 +51,8 @@ export function calculateRank(
 ): StageRank {
   if (!won) return "C";
   const ratio = targetScore > 0 ? score / targetScore : 0;
-  if (ratio >= 1.2) return "S";
-  if (ratio >= 1) return "A";
+  if (ratio >= rankConfig.sThresholdRatio) return "S";
+  if (ratio >= rankConfig.aThresholdRatio) return "A";
   return "B";
 }
 

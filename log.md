@@ -252,3 +252,14 @@ npm run dev
 ### Verification
 - `npm test`: 43 tests passed.
 - `npm run build`: succeeded. Vite still reports the existing large chunk warning.
+
+## 2026-06-16 Balance constants split
+
+### Implementation
+- Added `src/game/balance.ts` as the central home for shooting physics, skewer attachment tuning, scoring, rank thresholds, scoring wall defaults, and generated-stage tuning constants.
+- Moved `simulationConfig` out of `src/game/config.ts`; `config.ts` now keeps layout/cannon placement and re-exports `simulationConfig` for compatibility.
+- Replaced hardcoded score and penalty values in `GameSimulation`, target score calculation in `stages/buildStage`, rank thresholds in `progress`, and attached-ball spacing/radius references in simulation/rendering with `balance.ts` values.
+
+### Verification
+- `npm test`: 43 tests passed.
+- `npm run build`: succeeded. Vite still reports the existing large chunk warning.

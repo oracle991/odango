@@ -1,4 +1,5 @@
-import type { Arena, CannonConfig, SimulationConfig } from "./simulation/types";
+import type { Arena, CannonConfig } from "./simulation/types";
+export { simulationConfig } from "./balance";
 
 export const DESIGN_WIDTH = 1280;
 export const DESIGN_HEIGHT = 720;
@@ -16,18 +17,4 @@ export const cannon: CannonConfig = {
   minAngle: 25,
   maxAngle: 155,
   barrelLength: 74,
-};
-
-export const simulationConfig: SimulationConfig = {
-  gravity: 620,
-  tipRadius: 7,
-  skewerLength: 88,
-  ballSpacing: 30,
-  maxBallsPerSkewer: 3,
-  minChargeSeconds: 0.15,
-  maxChargeSeconds: 1.5,
-  minLaunchSpeed: 430,
-  maxLaunchSpeed: 900,
-  maxFlightSeconds: 10,
-  fixedStepSeconds: 1 / 120,
 };

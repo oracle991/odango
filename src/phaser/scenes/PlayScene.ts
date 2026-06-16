@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { defaultScoringWallIds } from "../../game/balance";
 import { arena, cannon, DESIGN_HEIGHT, DESIGN_WIDTH } from "../../game/config";
 import { gameEvents, type GameCommand } from "../../game/input/gameEvents";
 import { chargeToSpeed, muzzlePosition } from "../../game/simulation/physics";
@@ -294,10 +295,7 @@ export class PlayScene extends Phaser.Scene {
   private drawScoringWalls(g: Phaser.GameObjects.Graphics): void {
     const scoringWalls = new Set(
       this.simulation.getStage().scoringWallIds ?? [
-        "left",
-        "right",
-        "top",
-        "bottom",
+        ...defaultScoringWallIds,
       ],
     );
     g.lineStyle(12, 0xffcf70, 0.24);
@@ -468,15 +466,15 @@ export class PlayScene extends Phaser.Scene {
     skewer.attachedBallIds.forEach((ballId, index) => {
       const ball = this.simulation.state.balls.find((candidate) => candidate.id === ballId);
       if (!ball) return;
-      const distance = 24 + index * config.ballSpacing;
+      const distance = config.attachedBallOffset + index * config.ballSpacing;
       const x = skewer.position.x - forwardX * distance;
       const y = skewer.position.y - forwardY * distance;
       g.fillStyle(0x000000, 0.2);
-      g.fillCircle(x + 4, y + 5, 19);
+      g.fillCircle(x + 4, y + 5, config.attachedBallRadius + 1);
       g.fillStyle(ballColors[ball.color], 1);
-      g.fillCircle(x, y, 18);
+      g.fillCircle(x, y, config.attachedBallRadius);
       g.lineStyle(3, 0x5d3948, 0.85);
-      g.strokeCircle(x, y, 18);
+      g.strokeCircle(x, y, config.attachedBallRadius);
       this.drawBallMark(g, ball.color, x, y);
     });
 

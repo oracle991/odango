@@ -1,4 +1,9 @@
-import { arena, cannon, simulationConfig } from "../config";
+import {
+  defaultScoringWallIds,
+  scoreConfig,
+  simulationConfig,
+} from "../balance";
+import { arena, cannon } from "../config";
 import { coreRulesStage } from "../stage";
 import {
   chargeToSpeed,
@@ -241,8 +246,11 @@ export class GameSimulation {
         if (!bomb || bomb.triggered) continue;
         bomb.triggered = true;
         skewer.active = false;
-        this.state.skewers = Math.max(0, this.state.skewers - 1);
-        this.state.score = Math.max(0, this.state.score - 500);
+        this.state.skewers = Math.max(
+          0,
+          this.state.skewers - scoreConfig.bombPenaltySkewers,
+        );
+        this.state.score = Math.max(0, this.state.score - scoreConfig.bombPenalty);
         result.bombHit = { ...hit.position };
         result.wallHit = null;
         return;
@@ -282,7 +290,7 @@ export class GameSimulation {
       skewer.attachedBallIds.length === this.config.maxBallsPerSkewer &&
       this.isScoringWall(result.wallHit?.wallId);
     if (completed) {
-      this.state.score += 600;
+      this.state.score += scoreConfig.completedSkewer;
       return true;
     }
 
@@ -300,10 +308,7 @@ export class GameSimulation {
   private isScoringWall(wallId: string | undefined): boolean {
     if (!wallId) return false;
     const scoringWallIds = this.stage.scoringWallIds ?? [
-      "left",
-      "right",
-      "top",
-      "bottom",
+      ...defaultScoringWallIds,
     ];
     return scoringWallIds.includes(wallId);
   }
@@ -346,7 +351,7 @@ export class GameSimulation {
     }
 
     skewer.attachedBallIds.forEach((_ballId, index) => {
-      const offset = 24 + index * this.config.ballSpacing;
+      const offset = this.config.attachedBallOffset + index * this.config.ballSpacing;
       const time = segmentCircleIntersection(
         {
           x: start.x - forward.x * offset,
@@ -357,7 +362,7 @@ export class GameSimulation {
           y: end.y - forward.y * offset,
         },
         bombPosition,
-        bombRadius + 18,
+        bombRadius + this.config.attachedBallRadius,
       );
       if (time !== null) candidates.push(time);
     });
@@ -367,7 +372,9 @@ export class GameSimulation {
 
   private finishStage(): boolean {
     if (this.state.balls.every((ball) => !ball.available)) {
-      this.state.score += 1000 + this.state.skewers * 300;
+      this.state.score +=
+        scoreConfig.stageClearBonus +
+        this.state.skewers * scoreConfig.remainingSkewerBonus;
       this.state.status = "won";
       return true;
     }

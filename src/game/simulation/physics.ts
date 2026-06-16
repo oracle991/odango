@@ -175,7 +175,10 @@ function getObstacleHitTime(
     addHit(offset, config.tipRadius);
   }
   skewer.attachedBallIds.forEach((_ballId, index) => {
-    addHit(24 + index * config.ballSpacing, 18);
+    addHit(
+      config.attachedBallOffset + index * config.ballSpacing,
+      config.attachedBallRadius,
+    );
   });
 
   return hitTimes.length > 0 ? Math.min(...hitTimes) : null;
