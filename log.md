@@ -240,3 +240,15 @@ npm run dev
 - ステージ11以降で移動球の周期が数値表示なしでも読み取れるか確認
 - チャプター2後半からチャプター3への難易度上昇が急すぎないか確認
 - 実機iOS Safari／Android Chromeで15面一覧の長時間スクロールと進行保存を確認
+
+## 2026-06-16 M5 stage data split
+
+### Implementation
+- Split the 15 M5 stage recipes from `src/game/stage.ts` into one file per stage under `src/game/stages/`.
+- Added `src/game/stages/types.ts` for `StageRecipe` / `RepresentativeShot` and `src/game/stages/buildStage.ts` for recipe-to-`StageDefinition` conversion.
+- Added `src/game/stages/index.ts` as the fixed-order stage registry. Edit individual stage files for placement and route data, and edit the registry only when changing stage order or adding/removing stages.
+- Kept `validationStages`, `representativeStageShots`, and `coreRulesStage` exported from `src/game/stage.ts` so existing UI, Phaser, simulation, and test imports continue to work.
+
+### Verification
+- `npm test`: 43 tests passed.
+- `npm run build`: succeeded. Vite still reports the existing large chunk warning.
