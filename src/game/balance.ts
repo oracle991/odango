@@ -1,4 +1,4 @@
-import type { SimulationConfig } from "./simulation/types";
+import type { CompletionOrderBonus, SimulationConfig } from "./simulation/types";
 
 export const simulationConfig: SimulationConfig = {
   gravity: 620,
@@ -18,6 +18,7 @@ export const simulationConfig: SimulationConfig = {
 
 export const scoreConfig = {
   completedSkewer: 600,
+  defaultCompletionOrderBonus: 300,
   bombPenalty: 500,
   bombPenaltySkewers: 1,
   stageClearBonus: 1000,
@@ -34,7 +35,13 @@ export const rankConfig = {
 export const stageGenerationConfig = {
   targetBallRadius: 20,
   ballColors: ["white", "pink", "green"],
-  defaultTrajectoryTimes: [0.38, 0.58, 0.78],
+  defaultOrderBonuses: [
+    {
+      order: ["white", "pink", "green"],
+      points: scoreConfig.defaultCompletionOrderBonus,
+      label: "白・桜・よもぎ",
+    },
+  ] satisfies readonly CompletionOrderBonus[],
   motionBaseAmplitude: 6,
   motionAlternateAmplitudeBonus: 3,
   motionBasePeriodSeconds: 2.4,

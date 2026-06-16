@@ -5,11 +5,39 @@ export const chapterTwoFinale = {
     name: "十、三路の結び",
     objective: "浅撃ち、山なり、爆弾回避を続けて成功させる章末試験。",
     chapter: 2,
-    shots: [
-      { angle: 36, speed: 850 },
-      { angle: 116, speed: 680 },
-      { angle: 58, speed: 710 },
-      { angle: 142, speed: 800 },
+    groups: [
+      {
+        shot: { angle: 36, speed: 850 },
+        balls: [
+          { x: 961, y: 467 },
+          { x: 1099, y: 427 },
+          { x: 1236, y: 411 },
+        ],
+      },
+      {
+        shot: { angle: 116, speed: 680 },
+        balls: [
+          { x: 494, y: 402 },
+          { x: 435, y: 339 },
+          { x: 375, y: 301 },
+        ],
+      },
+      {
+        shot: { angle: 58, speed: 710 },
+        balls: [
+          { x: 822, y: 409 },
+          { x: 897, y: 348 },
+          { x: 973, y: 312 },
+        ],
+      },
+      {
+        shot: { angle: 142, speed: 800 },
+        balls: [
+          { x: 342, y: 468 },
+          { x: 216, y: 429 },
+          { x: 90, y: 415 },
+        ],
+      },
     ],
     scoringWallIds: ["left", "right", "bottom"],
     spareSkewers: 2,

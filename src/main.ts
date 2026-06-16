@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { scoreConfig } from "./game/balance";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "./game/config";
 import { sendGameCommand } from "./game/input/gameEvents";
 import {
@@ -38,6 +39,8 @@ interface HudDetail {
 interface FeedbackDetail {
   kind: FeedbackKind;
   count?: number;
+  bonusPoints?: number;
+  bonusLabel?: string;
 }
 
 interface GameSettings {
@@ -340,12 +343,16 @@ function renderStageCards(): void {
 }
 
 function showFeedback(detail: FeedbackDetail): void {
+  const completePoints = scoreConfig.completedSkewer + (detail.bonusPoints ?? 0);
+  const completeCopy = detail.bonusPoints
+    ? `三色だんご完成！ ${detail.bonusLabel ?? "完成順"}ボーナス +${completePoints}`
+    : `三色だんご完成！ +${scoreConfig.completedSkewer}`;
   const content: Record<FeedbackKind, { symbol: string; copy: string }> = {
     ball: {
       symbol: `${detail.count ?? 1}`,
       copy: detail.count === 3 ? "三個そろった！ 壁まで届けよう" : `${detail.count ?? 1}個目を刺した！`,
     },
-    complete: { symbol: "祝", copy: "三色だんご完成！ +600" },
+    complete: { symbol: "祝", copy: completeCopy },
     incomplete: { symbol: "戻", copy: "未完成。おだんごは元の位置へ" },
     bomb: { symbol: "危", copy: "爆弾！ 残り串とスコアにペナルティ" },
     launch: { symbol: "→", copy: "発射！ 串先端で三個を狙おう" },

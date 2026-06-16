@@ -39,6 +39,7 @@ export class GameSimulation {
       wallHit: null,
       shotEnded: false,
       completedSkewer: false,
+      completionOrderBonus: null,
       restoredBalls: false,
       statusChanged: false,
     };
@@ -291,6 +292,11 @@ export class GameSimulation {
       this.isScoringWall(result.wallHit?.wallId);
     if (completed) {
       this.state.score += scoreConfig.completedSkewer;
+      const bonus = this.findCompletionOrderBonus(skewer.attachedBallIds);
+      if (bonus) {
+        this.state.score += bonus.points;
+        result.completionOrderBonus = bonus;
+      }
       return true;
     }
 
@@ -303,6 +309,21 @@ export class GameSimulation {
     }
     result.restoredBalls = skewer.attachedBallIds.length > 0;
     return false;
+  }
+
+  private findCompletionOrderBonus(attachedBallIds: string[]) {
+    const bonuses = this.stage.completionOrderBonuses ?? [];
+    if (bonuses.length === 0) return null;
+
+    const contactOrder = [...attachedBallIds].reverse();
+    const colors = contactOrder.map((ballId) => {
+      const ball = this.state.balls.find((candidate) => candidate.id === ballId);
+      return ball?.color;
+    });
+    return bonuses.find((bonus) =>
+      bonus.order.length === colors.length &&
+      bonus.order.every((color, index) => color === colors[index]),
+    ) ?? null;
   }
 
   private isScoringWall(wallId: string | undefined): boolean {

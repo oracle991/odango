@@ -59,6 +59,12 @@ export interface BombState {
   triggered: boolean;
 }
 
+export interface CompletionOrderBonus {
+  order: readonly BallState["color"][];
+  points: number;
+  label?: string;
+}
+
 export type StageStatus = "playing" | "won" | "lost";
 
 export interface SimulationState {
@@ -123,6 +129,7 @@ export interface StageDefinition {
   bombs: TargetDefinition[];
   obstacles?: ObstacleDefinition[];
   scoringWallIds?: string[];
+  completionOrderBonuses?: readonly CompletionOrderBonus[];
   simulation?: Partial<
     Pick<SimulationConfig, "gravity" | "minLaunchSpeed" | "maxLaunchSpeed">
   >;
@@ -134,6 +141,7 @@ export interface SimulationUpdate {
   wallHit: WallHit | null;
   shotEnded: boolean;
   completedSkewer: boolean;
+  completionOrderBonus: CompletionOrderBonus | null;
   restoredBalls: boolean;
   statusChanged: boolean;
 }

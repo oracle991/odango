@@ -263,3 +263,18 @@ npm run dev
 ### Verification
 - `npm test`: 43 tests passed.
 - `npm run build`: succeeded. Vite still reports the existing large chunk warning.
+
+## 2026-06-16 Coordinate stage data and completion order bonus
+
+### Implementation
+- Changed M5 stage recipes from trajectory-generated ball placement to coordinate-authored `groups`, where each group owns three ball coordinates and its representative shot.
+- Kept `representativeStageShots` available by deriving it from `groups[].shot`, so the existing reachability tests can still replay the intended routes.
+- Preserved moving-ball behavior with per-group `moving: true` flags instead of global `movingGroups` indices.
+- Added a completion-order bonus rule. By default, completing a skewer in white -> pink -> green contact order grants an additional 300 points.
+- Added completion order bonus metadata to `StageDefinition`, scoring logic, simulation update results, and the completion feedback banner.
+- Updated target score generation to account for the best available completion-order bonus per completed skewer.
+
+### Verification
+- `npm test`: 45 tests passed.
+- `npm run build`: succeeded. Vite still reports the existing large chunk warning.
+- Browser smoke check on `http://localhost:5173/`: title screen, stage select with 15 cards, and stage 1 play screen loaded without console errors.

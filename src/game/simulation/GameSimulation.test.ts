@@ -19,12 +19,13 @@ const ball = (
   id: string,
   x: number,
   y = 200,
+  color: StageDefinition["balls"][number]["color"] = "white",
 ): StageDefinition["balls"][number] => ({
   id,
   x,
   y,
   radius: 2,
-  color: "white",
+  color,
 });
 
 const fireTestSkewer = (
@@ -141,6 +142,55 @@ describe("three-ball core rules", () => {
     expect(result.completedSkewer).toBe(true);
     expect(simulation.state.score).toBe(600);
     expect(simulation.state.status).toBe("playing");
+  });
+
+  it("adds a bonus when balls are completed in the configured color order", () => {
+    const simulation = new GameSimulation({
+      ...createStage([
+        ball("a", arena.right - 72, 200, "white"),
+        ball("b", arena.right - 50, 200, "pink"),
+        ball("c", arena.right - 28, 200, "green"),
+        ball("spare", 400, 400, "white"),
+      ]),
+      completionOrderBonuses: [
+        {
+          order: ["white", "pink", "green"],
+          points: 300,
+          label: "test order",
+        },
+      ],
+    });
+    fireTestSkewer(simulation);
+
+    const result = simulation.update(1 / 120);
+
+    expect(result.completedSkewer).toBe(true);
+    expect(result.completionOrderBonus?.points).toBe(300);
+    expect(simulation.state.score).toBe(900);
+  });
+
+  it("does not add the completion order bonus for a different color order", () => {
+    const simulation = new GameSimulation({
+      ...createStage([
+        ball("a", arena.right - 72, 200, "white"),
+        ball("b", arena.right - 50, 200, "green"),
+        ball("c", arena.right - 28, 200, "pink"),
+        ball("spare", 400, 400, "white"),
+      ]),
+      completionOrderBonuses: [
+        {
+          order: ["white", "pink", "green"],
+          points: 300,
+        },
+      ],
+    });
+    fireTestSkewer(simulation);
+
+    const result = simulation.update(1 / 120);
+
+    expect(result.completedSkewer).toBe(true);
+    expect(result.completionOrderBonus).toBeNull();
+    expect(simulation.state.score).toBe(600);
   });
 
   it("accepts any explicitly configured scoring wall and rejects other walls", () => {

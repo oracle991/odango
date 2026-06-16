@@ -4,7 +4,7 @@ import { arena, cannon, DESIGN_HEIGHT, DESIGN_WIDTH } from "../../game/config";
 import { gameEvents, type GameCommand } from "../../game/input/gameEvents";
 import { chargeToSpeed, muzzlePosition } from "../../game/simulation/physics";
 import { GameSimulation } from "../../game/simulation/GameSimulation";
-import type { BallState } from "../../game/simulation/types";
+import type { BallState, CompletionOrderBonus } from "../../game/simulation/types";
 import { validationStages } from "../../game/stage";
 
 interface HudDetail {
@@ -129,7 +129,7 @@ export class PlayScene extends Phaser.Scene {
     if (result.wallHit) {
       const kind = result.completedSkewer ? "complete" : "incomplete";
       this.impacts.push({ ...result.wallHit, kind, life: 1 });
-      this.emitFeedback(kind);
+      this.emitFeedback(kind, undefined, result.completionOrderBonus ?? undefined);
       if (result.completedSkewer && this.screenShake) {
         this.cameras.main.shake(180, 0.005);
       }
@@ -584,9 +584,17 @@ export class PlayScene extends Phaser.Scene {
   private emitFeedback(
     kind: "ball" | "bomb" | "complete" | "incomplete" | "launch",
     count?: number,
+    orderBonus?: CompletionOrderBonus,
   ): void {
     window.dispatchEvent(
-      new CustomEvent("odango-feedback", { detail: { kind, count } }),
+      new CustomEvent("odango-feedback", {
+        detail: {
+          kind,
+          count,
+          bonusPoints: orderBonus?.points,
+          bonusLabel: orderBonus?.label,
+        },
+      }),
     );
   }
 
