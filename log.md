@@ -278,3 +278,15 @@ npm run dev
 - `npm test`: 45 tests passed.
 - `npm run build`: succeeded. Vite still reports the existing large chunk warning.
 - Browser smoke check on `http://localhost:5173/`: title screen, stage select with 15 cards, and stage 1 play screen loaded without console errors.
+## 2026-06-17 団子図鑑・調理法・お品書きルール追加
+
+### 実装
+- 完成した串が当たった得点壁から団子の種類を決める調理法ルールを追加。既定では右壁=焼きだんご、左壁=みたらしだんご、床=月見だんご、天井=笹だんご。
+- ステージ中に初めて作った団子種類を `dangoDex` に記録し、2品目以降に図鑑ボーナスを加算するようにした。
+- 各ステージの得点対象壁から自動で「お品書き」を生成し、指定された種類をすべて作った時点でお品書き達成ボーナスを加算するようにした。
+- 団子種類、図鑑ボーナス、お品書き達成を完成フィードバックとステージナビへ表示。
+- 目標スコア生成に図鑑ボーナスとお品書き達成ボーナスを反映。
+
+### 検証
+- `npm test`: 46 tests passed.
+- `npm run build`: succeeded. Vite still reports the existing large chunk warning.

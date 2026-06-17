@@ -65,6 +65,27 @@ export interface CompletionOrderBonus {
   label?: string;
 }
 
+export interface DangoRecipe {
+  id: string;
+  name: string;
+  method: string;
+  wallId: string;
+}
+
+export interface DangoMenu {
+  id: string;
+  itemIds: readonly string[];
+  points: number;
+  label?: string;
+}
+
+export interface DangoCompletion {
+  recipe: DangoRecipe;
+  dexBonusPoints: number;
+  dexDiscoveryCount: number;
+  menuBonus: DangoMenu | null;
+}
+
 export type StageStatus = "playing" | "won" | "lost";
 
 export interface SimulationState {
@@ -81,6 +102,8 @@ export interface SimulationState {
   status: StageStatus;
   balls: BallState[];
   bombs: BombState[];
+  dangoDex: string[];
+  completedDangoMenuIds: string[];
 }
 
 export interface TrajectoryPoint extends Vec2 {
@@ -130,6 +153,8 @@ export interface StageDefinition {
   obstacles?: ObstacleDefinition[];
   scoringWallIds?: string[];
   completionOrderBonuses?: readonly CompletionOrderBonus[];
+  dangoRecipes?: readonly DangoRecipe[];
+  dangoMenu?: DangoMenu;
   simulation?: Partial<
     Pick<SimulationConfig, "gravity" | "minLaunchSpeed" | "maxLaunchSpeed">
   >;
@@ -142,6 +167,7 @@ export interface SimulationUpdate {
   shotEnded: boolean;
   completedSkewer: boolean;
   completionOrderBonus: CompletionOrderBonus | null;
+  dangoCompletion: DangoCompletion | null;
   restoredBalls: boolean;
   statusChanged: boolean;
 }

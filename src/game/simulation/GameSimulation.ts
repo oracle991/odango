@@ -19,6 +19,7 @@ import type {
   StageDefinition,
   TrajectoryPoint,
   Vec2,
+  DangoCompletion,
 } from "./types";
 
 export class GameSimulation {
@@ -40,6 +41,7 @@ export class GameSimulation {
       shotEnded: false,
       completedSkewer: false,
       completionOrderBonus: null,
+      dangoCompletion: null,
       restoredBalls: false,
       statusChanged: false,
     };
@@ -199,6 +201,8 @@ export class GameSimulation {
         radius: bomb.radius,
         triggered: false,
       })),
+      dangoDex: [],
+      completedDangoMenuIds: [],
     };
   }
 
@@ -297,6 +301,7 @@ export class GameSimulation {
         this.state.score += bonus.points;
         result.completionOrderBonus = bonus;
       }
+      result.dangoCompletion = this.completeDango(result.wallHit?.wallId);
       return true;
     }
 
@@ -324,6 +329,45 @@ export class GameSimulation {
       bonus.order.length === colors.length &&
       bonus.order.every((color, index) => color === colors[index]),
     ) ?? null;
+  }
+
+  private completeDango(wallId: string | undefined): DangoCompletion | null {
+    if (!wallId) return null;
+    const recipe = this.stage.dangoRecipes?.find((dango) => dango.wallId === wallId);
+    if (!recipe) return null;
+
+    let dexBonusPoints = 0;
+    let dexDiscoveryCount = this.state.dangoDex.length;
+    if (!this.state.dangoDex.includes(recipe.id)) {
+      this.state.dangoDex.push(recipe.id);
+      dexDiscoveryCount = this.state.dangoDex.length;
+      dexBonusPoints = this.dexBonusForCount(dexDiscoveryCount);
+      this.state.score += dexBonusPoints;
+    }
+
+    let menuBonus: DangoCompletion["menuBonus"] = null;
+    const menu = this.stage.dangoMenu;
+    if (
+      menu &&
+      !this.state.completedDangoMenuIds.includes(menu.id) &&
+      menu.itemIds.every((itemId) => this.state.dangoDex.includes(itemId))
+    ) {
+      this.state.completedDangoMenuIds.push(menu.id);
+      this.state.score += menu.points;
+      menuBonus = menu;
+    }
+
+    return {
+      recipe,
+      dexBonusPoints,
+      dexDiscoveryCount,
+      menuBonus,
+    };
+  }
+
+  private dexBonusForCount(count: number): number {
+    const bonuses = scoreConfig.dangoDexDiscoveryBonuses;
+    return bonuses[Math.min(count - 1, bonuses.length - 1)] ?? 0;
   }
 
   private isScoringWall(wallId: string | undefined): boolean {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultDangoRecipes } from "../balance";
 import { arena } from "../config";
 import type { StageDefinition } from "./types";
 import { GameSimulation } from "./GameSimulation";
@@ -35,6 +36,19 @@ const fireTestSkewer = (
   simulation.state.skewer = {
     position: { x, y: 200 },
     velocity: { x: 12000, y: 0 },
+    ageSeconds: 0,
+    active: true,
+    attachedBallIds: [],
+  };
+};
+
+const fireLeftTestSkewer = (
+  simulation: GameSimulation,
+  x = arena.left + 92,
+): void => {
+  simulation.state.skewer = {
+    position: { x, y: 200 },
+    velocity: { x: -12000, y: 0 },
     ageSeconds: 0,
     active: true,
     attachedBallIds: [],
@@ -191,6 +205,47 @@ describe("three-ball core rules", () => {
     expect(result.completedSkewer).toBe(true);
     expect(result.completionOrderBonus).toBeNull();
     expect(simulation.state.score).toBe(600);
+  });
+
+  it("turns scoring walls into dango recipes and awards dex and menu bonuses", () => {
+    const simulation = new GameSimulation({
+      ...createStage([
+        ball("right-a", arena.right - 72),
+        ball("right-b", arena.right - 50),
+        ball("right-c", arena.right - 28),
+        ball("left-a", arena.left + 72),
+        ball("left-b", arena.left + 50),
+        ball("left-c", arena.left + 28),
+        ball("spare", 400, 400),
+      ], [], 3),
+      scoringWallIds: ["right", "left"],
+      dangoRecipes: defaultDangoRecipes,
+      dangoMenu: {
+        id: "daily",
+        itemIds: ["yaki-dango", "mitarashi-dango"],
+        points: 700,
+        label: "daily menu",
+      },
+    });
+
+    fireTestSkewer(simulation);
+    const first = simulation.update(1 / 120);
+
+    expect(first.completedSkewer).toBe(true);
+    expect(first.dangoCompletion?.recipe.id).toBe("yaki-dango");
+    expect(first.dangoCompletion?.dexBonusPoints).toBe(0);
+    expect(first.dangoCompletion?.menuBonus).toBeNull();
+    expect(simulation.state.score).toBe(600);
+
+    fireLeftTestSkewer(simulation);
+    const second = simulation.update(1 / 120);
+
+    expect(second.completedSkewer).toBe(true);
+    expect(second.dangoCompletion?.recipe.id).toBe("mitarashi-dango");
+    expect(second.dangoCompletion?.dexBonusPoints).toBe(200);
+    expect(second.dangoCompletion?.menuBonus?.points).toBe(700);
+    expect(simulation.state.dangoDex).toEqual(["yaki-dango", "mitarashi-dango"]);
+    expect(simulation.state.score).toBe(2100);
   });
 
   it("accepts any explicitly configured scoring wall and rejects other walls", () => {

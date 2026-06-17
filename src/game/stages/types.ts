@@ -37,4 +37,6 @@ export interface StageRecipe {
   bombs?: StageDefinition["bombs"];
   obstacles?: ObstacleDefinition[];
   completionOrderBonuses?: StageDefinition["completionOrderBonuses"];
+  dangoRecipes?: StageDefinition["dangoRecipes"];
+  dangoMenu?: StageDefinition["dangoMenu"];
 }

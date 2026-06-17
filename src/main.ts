@@ -34,6 +34,7 @@ interface HudDetail {
   stageCount: number;
   stageName: string;
   stageObjective: string;
+  dangoMenuText: string;
 }
 
 interface FeedbackDetail {
@@ -41,6 +42,8 @@ interface FeedbackDetail {
   count?: number;
   bonusPoints?: number;
   bonusLabel?: string;
+  dangoName?: string;
+  menuCompleted?: boolean;
 }
 
 interface GameSettings {
@@ -106,6 +109,7 @@ const resultMessage = query<HTMLElement>("#result-message");
 const stageCounter = query<HTMLElement>("#stage-counter");
 const stageName = query<HTMLElement>("#stage-name");
 const stageObjective = query<HTMLElement>("#stage-objective");
+const stageMenu = query<HTMLElement>("#stage-menu");
 const stageGrid = query<HTMLElement>("#stage-grid");
 const feedbackSymbol = query<HTMLElement>("#feedback-symbol");
 const feedbackCopy = query<HTMLElement>("#feedback-copy");
@@ -344,9 +348,13 @@ function renderStageCards(): void {
 
 function showFeedback(detail: FeedbackDetail): void {
   const completePoints = scoreConfig.completedSkewer + (detail.bonusPoints ?? 0);
+  const completeName = detail.dangoName ?? "三色だんご";
+  const bonusCopy = detail.bonusPoints
+    ? ` ${detail.bonusLabel || "ボーナス"}込み`
+    : "";
   const completeCopy = detail.bonusPoints
-    ? `三色だんご完成！ ${detail.bonusLabel ?? "完成順"}ボーナス +${completePoints}`
-    : `三色だんご完成！ +${scoreConfig.completedSkewer}`;
+    ? `${completeName}完成！${bonusCopy} +${completePoints}`
+    : `${completeName}完成！ +${scoreConfig.completedSkewer}`;
   const content: Record<FeedbackKind, { symbol: string; copy: string }> = {
     ball: {
       symbol: `${detail.count ?? 1}`,
@@ -395,6 +403,7 @@ window.addEventListener("odango-hud", (event) => {
   if (stageCounter) stageCounter.textContent = `STAGE ${detail.stageIndex + 1} / ${detail.stageCount}`;
   if (stageName) stageName.textContent = detail.stageName;
   if (stageObjective) stageObjective.textContent = detail.stageObjective;
+  if (stageMenu) stageMenu.textContent = detail.dangoMenuText;
   if (previousStageButton) {
     previousStageButton.disabled = detail.stageIndex <= 0;
   }

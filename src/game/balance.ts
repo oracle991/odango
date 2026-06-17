@@ -1,4 +1,8 @@
-import type { CompletionOrderBonus, SimulationConfig } from "./simulation/types";
+import type {
+  CompletionOrderBonus,
+  DangoRecipe,
+  SimulationConfig,
+} from "./simulation/types";
 
 export const simulationConfig: SimulationConfig = {
   gravity: 620,
@@ -23,6 +27,8 @@ export const scoreConfig = {
   bombPenaltySkewers: 1,
   stageClearBonus: 1000,
   remainingSkewerBonus: 300,
+  dangoDexDiscoveryBonuses: [0, 200, 500, 800],
+  dangoMenuBonus: 700,
   targetScoreDivisor: 12,
   targetScoreStep: 10,
 } as const;
@@ -48,6 +54,33 @@ export const stageGenerationConfig = {
   motionPeriodStepSeconds: 0.35,
   motionPhaseStep: 0.7,
 } as const;
+
+export const defaultDangoRecipes = [
+  {
+    id: "yaki-dango",
+    name: "焼きだんご",
+    method: "焼き",
+    wallId: "right",
+  },
+  {
+    id: "mitarashi-dango",
+    name: "みたらしだんご",
+    method: "たれ",
+    wallId: "left",
+  },
+  {
+    id: "tsukimi-dango",
+    name: "月見だんご",
+    method: "盛り付け",
+    wallId: "bottom",
+  },
+  {
+    id: "sasa-dango",
+    name: "笹だんご",
+    method: "蒸し",
+    wallId: "top",
+  },
+] satisfies readonly DangoRecipe[];
 
 export const defaultScoringWallIds = [
   "left",

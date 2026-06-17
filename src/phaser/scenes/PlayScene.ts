@@ -4,7 +4,11 @@ import { arena, cannon, DESIGN_HEIGHT, DESIGN_WIDTH } from "../../game/config";
 import { gameEvents, type GameCommand } from "../../game/input/gameEvents";
 import { chargeToSpeed, muzzlePosition } from "../../game/simulation/physics";
 import { GameSimulation } from "../../game/simulation/GameSimulation";
-import type { BallState, CompletionOrderBonus } from "../../game/simulation/types";
+import type {
+  BallState,
+  CompletionOrderBonus,
+  DangoCompletion,
+} from "../../game/simulation/types";
 import { validationStages } from "../../game/stage";
 
 interface HudDetail {
@@ -24,6 +28,7 @@ interface HudDetail {
   stageCount: number;
   stageName: string;
   stageObjective: string;
+  dangoMenuText: string;
 }
 
 interface ImpactFx {
@@ -129,7 +134,12 @@ export class PlayScene extends Phaser.Scene {
     if (result.wallHit) {
       const kind = result.completedSkewer ? "complete" : "incomplete";
       this.impacts.push({ ...result.wallHit, kind, life: 1 });
-      this.emitFeedback(kind, undefined, result.completionOrderBonus ?? undefined);
+      this.emitFeedback(
+        kind,
+        undefined,
+        result.completionOrderBonus ?? undefined,
+        result.dangoCompletion ?? undefined,
+      );
       if (result.completedSkewer && this.screenShake) {
         this.cameras.main.shake(180, 0.005);
       }
@@ -585,14 +595,27 @@ export class PlayScene extends Phaser.Scene {
     kind: "ball" | "bomb" | "complete" | "incomplete" | "launch",
     count?: number,
     orderBonus?: CompletionOrderBonus,
+    dangoCompletion?: DangoCompletion,
   ): void {
+    const dangoBonus =
+      (dangoCompletion?.dexBonusPoints ?? 0) +
+      (dangoCompletion?.menuBonus?.points ?? 0);
+    const bonusLabelParts = [
+      orderBonus?.label,
+      dangoCompletion && dangoCompletion.dexBonusPoints > 0
+        ? `図鑑${dangoCompletion.dexDiscoveryCount}品目`
+        : null,
+      dangoCompletion?.menuBonus?.label,
+    ].filter((label): label is string => Boolean(label));
     window.dispatchEvent(
       new CustomEvent("odango-feedback", {
         detail: {
           kind,
           count,
-          bonusPoints: orderBonus?.points,
-          bonusLabel: orderBonus?.label,
+          bonusPoints: (orderBonus?.points ?? 0) + dangoBonus,
+          bonusLabel: bonusLabelParts.join(" / "),
+          dangoName: dangoCompletion?.recipe.name,
+          menuCompleted: Boolean(dangoCompletion?.menuBonus),
         },
       }),
     );
@@ -621,7 +644,21 @@ export class PlayScene extends Phaser.Scene {
       stageCount: validationStages.length,
       stageName: stage.name ?? stage.id,
       stageObjective: stage.objective ?? "",
+      dangoMenuText: this.formatDangoMenuText(),
     };
     window.dispatchEvent(new CustomEvent<HudDetail>("odango-hud", { detail }));
+  }
+
+  private formatDangoMenuText(): string {
+    const stage = this.simulation.getStage();
+    const menu = stage.dangoMenu;
+    if (!menu || !stage.dangoRecipes) return "";
+    const completedIds = new Set(this.simulation.state.dangoDex);
+    const names = menu.itemIds.map((itemId) => {
+      const recipe = stage.dangoRecipes?.find((dango) => dango.id === itemId);
+      const name = recipe?.name ?? itemId;
+      return completedIds.has(itemId) ? `✓${name}` : name;
+    });
+    return `お品書き: ${names.join(" / ")}`;
   }
 }

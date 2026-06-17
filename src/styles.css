@@ -245,6 +245,12 @@ button {
   font-size: 10px;
 }
 
+.stage-nav .stage-menu {
+  margin-top: 2px;
+  color: var(--gold);
+  font-weight: 900;
+}
+
 .controls {
   position: absolute;
   z-index: 6;
