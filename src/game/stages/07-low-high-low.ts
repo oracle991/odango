@@ -1,40 +1,29 @@
+import { choiceGroup } from "./choiceGroup";
 import type { StageRecipe } from "./types";
 
 export const lowHighLow = {
-    id: "low-high-low",
-    name: "七、低く高く",
-    objective: "左右へ振り分けた三つの軌道で、中央の板を避ける。",
-    chapter: 2,
-    groups: [
-      {
-        shot: { angle: 32, speed: 820 },
-        balls: [
-          { x: 967, y: 496 },
-          { x: 1106, y: 469 },
-          { x: 1245, y: 466 },
-        ],
-      },
-      {
-        shot: { angle: 72, speed: 610 },
-        balls: [
-          { x: 734, y: 410 },
-          { x: 772, y: 353 },
-          { x: 810, y: 322 },
-        ],
-      },
-      {
-        shot: { angle: 145, speed: 820 },
-        balls: [
-          { x: 324, y: 480 },
-          { x: 190, y: 445 },
-          { x: 55, y: 435 },
-        ],
-      },
-    ],
-    scoringWallIds: ["left", "right", "bottom"],
-    spareSkewers: 2,
-    obstacles: [
-      { id: "roof-left", x: 300, y: 205, width: 220, height: 28 },
-      { id: "roof-right", x: 760, y: 205, width: 220, height: 28 },
-    ],
-  } satisfies StageRecipe;
+  id: "low-high-low",
+  name: "七、低く高く選ぶ",
+  objective:
+    "近いまとまりほど角度差が小さく、遠いまとまりほど壁選択が大きく変わる。お品書きのために混ぜる。",
+  chapter: 2,
+  groups: [
+    choiceGroup({
+      shot: { angle: 72, speed: 800 },
+      alternateShot: { angle: 80, speed: 760 },
+      center: { x: 861, y: 177 },
+    }),
+    choiceGroup({
+      shot: { angle: 100, speed: 760 },
+      alternateShot: { angle: 108, speed: 800 },
+      center: { x: 419, y: 177 },
+    }),
+    choiceGroup({
+      shot: { angle: 40, speed: 600 },
+      alternateShot: { angle: 84, speed: 600 },
+      center: { x: 765, y: 558 },
+    }),
+  ],
+  scoringWallIds: ["left", "right", "bottom"],
+  spareSkewers: 2,
+} satisfies StageRecipe;

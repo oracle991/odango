@@ -1,64 +1,42 @@
+import { choiceGroup } from "./choiceGroup";
 import type { StageRecipe } from "./types";
 
 export const grandFinale = {
-    id: "grand-finale",
-    name: "十五、重力砲台皆伝",
-    objective: "壁、爆弾、細道、移動球を組み合わせた全要素の最終試験。",
-    chapter: 3,
-    groups: [
-      {
-        shot: { angle: 40, speed: 810 },
-        balls: [
-          { x: 932, y: 455 },
-          { x: 1057, y: 411 },
-          { x: 1181, y: 391 },
-        ],
-      },
-      {
-        shot: { angle: 64, speed: 680 },
-        balls: [
-          { x: 786, y: 402 },
-          { x: 845, y: 339 },
-          { x: 905, y: 301 },
-        ],
-        moving: true,
-      },
-      {
-        shot: { angle: 116, speed: 680 },
-        balls: [
-          { x: 494, y: 402 },
-          { x: 435, y: 339 },
-          { x: 375, y: 301 },
-        ],
-        moving: true,
-      },
-      {
-        shot: { angle: 140, speed: 810 },
-        balls: [
-          { x: 348, y: 455 },
-          { x: 223, y: 411 },
-          { x: 99, y: 391 },
-        ],
-      },
-      {
-        shot: { angle: 82, speed: 590 },
-        balls: [
-          { x: 682, y: 405 },
-          { x: 698, y: 348 },
-          { x: 714, y: 316 },
-        ],
-        moving: true,
-      },
-    ],
-    scoringWallIds: ["left", "right", "bottom"],
-    spareSkewers: 1,
-    bombs: [
-      { id: "final-left", x: 250, y: 215, radius: 27 },
-      { id: "final-right", x: 1030, y: 215, radius: 27 },
-      { id: "final-top", x: 120, y: 100, radius: 25 },
-    ],
-    obstacles: [
-      { id: "final-left-board", x: 315, y: 90, width: 35, height: 70 },
-      { id: "final-right-board", x: 930, y: 90, width: 35, height: 70 },
-    ],
-  } satisfies StageRecipe;
+  id: "grand-finale",
+  name: "十五、重力砲台詰め合わせ",
+  objective:
+    "壁、爆弾、細道、移動団子を組み合わせた最終試験。複数解からお品書き達成を組み立てる。",
+  chapter: 3,
+  groups: [
+    choiceGroup({
+      shot: { angle: 72, speed: 840 },
+      alternateShot: { angle: 84, speed: 560 },
+      center: { x: 728, y: 406 },
+      spread: 14,
+    }),
+    choiceGroup({
+      shot: { angle: 44, speed: 720 },
+      alternateShot: { angle: 68, speed: 680 },
+      center: { x: 1095, y: 405 },
+    }),
+    choiceGroup({
+      shot: { angle: 56, speed: 800 },
+      alternateShot: { angle: 84, speed: 720 },
+      center: { x: 804, y: 437 },
+      spread: 18,
+    }),
+    choiceGroup({
+      shot: { angle: 96, speed: 720 },
+      alternateShot: { angle: 128, speed: 720 },
+      center: { x: 472, y: 466 },
+      spread: 18,
+    }),
+    choiceGroup({
+      shot: { angle: 112, speed: 680 },
+      alternateShot: { angle: 136, speed: 720 },
+      center: { x: 185, y: 405 },
+    }),
+  ],
+  scoringWallIds: ["left", "right", "bottom"],
+  spareSkewers: 1,
+} satisfies StageRecipe;

@@ -19,6 +19,7 @@ export interface StageBall {
 
 export interface StageBallGroup {
   shot: RepresentativeShot;
+  alternateShots?: readonly RepresentativeShot[];
   balls: readonly [StageBall, StageBall, StageBall];
   moving?: boolean;
 }

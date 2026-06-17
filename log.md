@@ -290,3 +290,16 @@ npm run dev
 ### 検証
 - `npm test`: 46 tests passed.
 - `npm run build`: succeeded. Vite still reports the existing large chunk warning.
+
+## 2026-06-17 Stage 6-15 multiple-solution redesign
+
+### Implementation
+- Redesigned stages 6 through 15 around the dango dex, cooking-wall, and menu-completion rules.
+- Added `alternateShots` to stage ball groups so a single three-ball group can be collected by more than one shot route.
+- Added `choiceGroup` helpers for compact crossing-point ball groups that support both the primary route and an alternate route.
+- Added `representativeStageShotRoutes` and stage tests that require stages 6-15 to have at least two reproducible clear routes with different wall-result sequences.
+- Reworked the redesigned stages so the safe route and alternate route both clear, while mixed wall choices can be used to chase the stage menu bonus.
+
+### Verification
+- `npm test`: 56 tests passed.
+- `npm run build`: succeeded. Vite still reports the existing large chunk warning.

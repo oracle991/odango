@@ -3,11 +3,12 @@ import { cannon } from "./config";
 import { createSkewer } from "./simulation/physics";
 import { GameSimulation } from "./simulation/GameSimulation";
 import {
+  representativeStageShotRoutes,
   representativeStageShots,
   validationStages,
 } from "./stage";
 
-function playStage(stageIndex: number): {
+function playStage(stageIndex: number, route = representativeStageShots[stageIndex]): {
   simulation: GameSimulation;
   wallIds: string[];
   completedShots: boolean[];
@@ -16,7 +17,7 @@ function playStage(stageIndex: number): {
   const wallIds: string[] = [];
   const completedShots: boolean[] = [];
 
-  for (const shot of representativeStageShots[stageIndex]) {
+  for (const shot of route) {
     simulation.state.skewers -= 1;
     simulation.state.skewer = createSkewer(cannon, shot.angle, shot.speed);
 
@@ -85,6 +86,24 @@ describe("M5 stages", () => {
           ),
         ),
       });
+    },
+  );
+
+  it.each(validationStages.slice(5).map((stage, index) => [stage.name, index + 5] as const))(
+    "%s has multiple reproducible clear routes",
+    (_name, stageIndex) => {
+      const routes = representativeStageShotRoutes[stageIndex];
+      expect(routes.length).toBeGreaterThanOrEqual(2);
+
+      const results = routes.map((route) => playStage(stageIndex, route));
+      for (const result of results) {
+        expect(result.simulation.state.status).toBe("won");
+        expect(result.completedShots).toEqual(
+          representativeStageShotRoutes[stageIndex][0].map(() => true),
+        );
+      }
+      expect(new Set(results.map((result) => result.wallIds.join("|"))).size)
+        .toBeGreaterThanOrEqual(2);
     },
   );
 
