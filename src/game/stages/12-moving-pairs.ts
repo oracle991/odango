@@ -13,14 +13,14 @@ export const movingPairs = {
       alternateShot: { angle: 84, speed: 640 },
       center: { x: 775, y: 497 },
       moving: true,
-      spread: 16,
+      spread: 29.5,
     }),
     choiceGroup({
       shot: { angle: 96, speed: 640, waitSeconds: 1 },
       alternateShot: { angle: 128, speed: 720 },
       center: { x: 505, y: 497 },
       moving: true,
-      spread: 16,
+      spread: 29.5,
     }),
     choiceGroup({
       shot: { angle: 68, speed: 720 },

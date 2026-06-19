@@ -13,7 +13,7 @@ export const firstMotion = {
       alternateShot: { angle: 84, speed: 720 },
       center: { x: 804, y: 437 },
       moving: true,
-      spread: 16,
+      spread: 29.5,
     }),
     choiceGroup({
       shot: { angle: 96, speed: 720 },
@@ -23,7 +23,7 @@ export const firstMotion = {
     choiceGroup({
       shot: { angle: 60, speed: 720 },
       alternateShot: { angle: 80, speed: 720 },
-      center: { x: 884, y: 337 },
+      center: { x: 886, y: 337 },
     }),
     choiceGroup({
       shot: { angle: 100, speed: 720 },

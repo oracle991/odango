@@ -21,6 +21,7 @@ export interface CannonConfig {
 export interface SimulationConfig {
   gravity: number;
   tipRadius: number;
+  ballPickupForgiveness: number;
   skewerLength: number;
   ballSpacing: number;
   attachedBallOffset: number;

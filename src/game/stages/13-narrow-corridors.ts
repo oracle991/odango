@@ -12,7 +12,7 @@ export const narrowCorridors = {
       shot: { angle: 56, speed: 640 },
       alternateShot: { angle: 84, speed: 560 },
       center: { x: 744, y: 512 },
-      spread: 16,
+      spread: 29.5,
     }),
     choiceGroup({
       shot: { angle: 52, speed: 800 },
@@ -23,7 +23,7 @@ export const narrowCorridors = {
       shot: { angle: 96, speed: 560 },
       alternateShot: { angle: 124, speed: 640 },
       center: { x: 536, y: 512 },
-      spread: 16,
+      spread: 29.5,
     }),
     choiceGroup({
       shot: { angle: 104, speed: 800 },

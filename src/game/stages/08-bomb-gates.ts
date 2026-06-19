@@ -22,6 +22,7 @@ export const bombGates = {
       shot: { angle: 60, speed: 800 },
       alternateShot: { angle: 64, speed: 600 },
       center: { x: 817, y: 388 },
+      rotationDegrees: 90,
     }),
   ],
   scoringWallIds: ["left", "right", "bottom"],

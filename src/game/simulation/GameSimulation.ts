@@ -228,7 +228,9 @@ export class GameSimulation {
           start,
           end,
           ball.position,
-          ball.radius + this.config.tipRadius,
+          ball.radius +
+            this.config.tipRadius +
+            this.config.ballPickupForgiveness,
         );
         if (time !== null) {
           hits.push({ time, kind: "ball", id: ball.id, position: ball.position });

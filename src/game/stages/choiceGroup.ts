@@ -1,3 +1,4 @@
+import { stageGenerationConfig } from "../balance";
 import type { RepresentativeShot, StageBallGroup } from "./types";
 
 interface ChoiceGroupOptions {
@@ -9,6 +10,7 @@ interface ChoiceGroupOptions {
   };
   moving?: boolean;
   spread?: number;
+  rotationDegrees?: number;
 }
 
 export function choiceGroup({
@@ -16,15 +18,24 @@ export function choiceGroup({
   alternateShot,
   center,
   moving,
-  spread = 18,
+  spread = stageGenerationConfig.minimumBallCenterDistance / Math.sqrt(3) + 0.5,
+  rotationDegrees = 0,
 }: ChoiceGroupOptions): StageBallGroup {
+  const pointAt = (degrees: number): { x: number; y: number } => {
+    const radians = ((degrees + rotationDegrees) * Math.PI) / 180;
+    return {
+      x: Math.round(center.x + Math.cos(radians) * spread),
+      y: Math.round(center.y + Math.sin(radians) * spread),
+    };
+  };
+
   return {
     shot,
     alternateShots: [alternateShot],
     balls: [
-      { x: Math.round(center.x - spread), y: Math.round(center.y + 8) },
-      { x: Math.round(center.x), y: Math.round(center.y - 10) },
-      { x: Math.round(center.x + spread), y: Math.round(center.y + 8) },
+      pointAt(150),
+      pointAt(270),
+      pointAt(30),
     ],
     moving,
   };

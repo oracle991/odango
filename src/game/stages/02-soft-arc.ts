@@ -9,9 +9,9 @@ export const softArc = {
       {
         shot: { angle: 76, speed: 500 },
         balls: [
-          { x: 704, y: 445 },
+          { x: 700, y: 453 },
           { x: 728, y: 407 },
-          { x: 752, y: 394 },
+          { x: 780, y: 410 },
         ],
       },
     ],

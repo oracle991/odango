@@ -7,6 +7,7 @@ import type {
 export const simulationConfig: SimulationConfig = {
   gravity: 620,
   tipRadius: 7,
+  ballPickupForgiveness: 5,
   skewerLength: 88,
   ballSpacing: 30,
   attachedBallOffset: 24,
@@ -40,6 +41,7 @@ export const rankConfig = {
 
 export const stageGenerationConfig = {
   targetBallRadius: 20,
+  minimumBallCenterDistance: 50,
   ballColors: ["white", "pink", "green"],
   defaultOrderBonuses: [
     {

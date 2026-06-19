@@ -9,19 +9,19 @@ export const splitWalls = {
   chapter: 2,
   groups: [
     choiceGroup({
-      shot: { angle: 68, speed: 840 },
-      alternateShot: { angle: 72, speed: 640 },
-      center: { x: 801, y: 313 },
+      shot: { angle: 60, speed: 720 },
+      alternateShot: { angle: 80, speed: 720 },
+      center: { x: 884, y: 337 },
     }),
     choiceGroup({
-      shot: { angle: 60, speed: 800 },
-      alternateShot: { angle: 76, speed: 600 },
-      center: { x: 847, y: 355 },
+      shot: { angle: 100, speed: 720 },
+      alternateShot: { angle: 120, speed: 720 },
+      center: { x: 396, y: 337 },
     }),
     choiceGroup({
-      shot: { angle: 104, speed: 600 },
-      alternateShot: { angle: 120, speed: 800 },
-      center: { x: 433, y: 355 },
+      shot: { angle: 44, speed: 720 },
+      alternateShot: { angle: 68, speed: 680 },
+      center: { x: 1095, y: 405 },
     }),
   ],
   scoringWallIds: ["left", "right", "bottom"],

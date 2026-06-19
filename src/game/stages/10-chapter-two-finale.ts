@@ -17,6 +17,7 @@ export const chapterTwoFinale = {
       shot: { angle: 60, speed: 720 },
       alternateShot: { angle: 80, speed: 720 },
       center: { x: 884, y: 337 },
+      rotationDegrees: 26,
     }),
     choiceGroup({
       shot: { angle: 100, speed: 720 },

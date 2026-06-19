@@ -12,7 +12,8 @@ export const grandFinale = {
       shot: { angle: 72, speed: 840 },
       alternateShot: { angle: 84, speed: 560 },
       center: { x: 728, y: 406 },
-      spread: 14,
+      spread: 29.5,
+      rotationDegrees: 67,
     }),
     choiceGroup({
       shot: { angle: 44, speed: 720 },
@@ -23,13 +24,14 @@ export const grandFinale = {
       shot: { angle: 56, speed: 800 },
       alternateShot: { angle: 84, speed: 720 },
       center: { x: 804, y: 437 },
-      spread: 18,
+      spread: 29.5,
+      rotationDegrees: 7,
     }),
     choiceGroup({
       shot: { angle: 96, speed: 720 },
       alternateShot: { angle: 128, speed: 720 },
       center: { x: 472, y: 466 },
-      spread: 18,
+      spread: 29.5,
     }),
     choiceGroup({
       shot: { angle: 112, speed: 680 },

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cannon } from "./config";
+import { stageGenerationConfig } from "./balance";
 import { createSkewer } from "./simulation/physics";
 import { GameSimulation } from "./simulation/GameSimulation";
 import {
@@ -78,6 +79,60 @@ describe("M5 stages", () => {
     expect(movingBalls.length).toBeGreaterThan(0);
     for (const ball of movingBalls) {
       expect(ball.motion?.amplitude).toBeGreaterThanOrEqual(ball.radius * 3);
+    }
+  });
+
+  it("keeps every pair of dango at least the configured distance apart", () => {
+    for (const stage of validationStages) {
+      for (let firstIndex = 0; firstIndex < stage.balls.length; firstIndex += 1) {
+        const first = stage.balls[firstIndex];
+        for (
+          let secondIndex = firstIndex + 1;
+          secondIndex < stage.balls.length;
+          secondIndex += 1
+        ) {
+          const second = stage.balls[secondIndex];
+          const distance = Math.hypot(first.x - second.x, first.y - second.y);
+          expect(distance, `${stage.name}: ${first.id} and ${second.id}`).toBeGreaterThanOrEqual(
+            stageGenerationConfig.minimumBallCenterDistance,
+          );
+        }
+      }
+    }
+  });
+
+  it("keeps moving dango at least the configured distance apart throughout their cycles", () => {
+    for (const stage of validationStages.filter((candidate) =>
+      candidate.balls.some((ball) => ball.motion),
+    )) {
+      const simulation = new GameSimulation(stage);
+      for (let step = 0; step < 30 * 120; step += 1) {
+        simulation.update(1 / 120);
+        for (
+          let firstIndex = 0;
+          firstIndex < simulation.state.balls.length;
+          firstIndex += 1
+        ) {
+          const first = simulation.state.balls[firstIndex];
+          for (
+            let secondIndex = firstIndex + 1;
+            secondIndex < simulation.state.balls.length;
+            secondIndex += 1
+          ) {
+            const second = simulation.state.balls[secondIndex];
+            const distance = Math.hypot(
+              first.position.x - second.position.x,
+              first.position.y - second.position.y,
+            );
+            expect(
+              distance,
+              `${stage.name} at ${(step / 120).toFixed(2)}s: ${first.id} and ${second.id}`,
+            ).toBeGreaterThanOrEqual(
+              stageGenerationConfig.minimumBallCenterDistance - 1e-9,
+            );
+          }
+        }
+      }
     }
   });
 

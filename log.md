@@ -316,3 +316,30 @@ npm run dev
 - `npm test`: 57 tests passed, including all representative and alternate clear routes.
 - `npm run build`: succeeded. Vite still reports the existing large chunk warning.
 - Browser comparison on stages 11 and 12 confirmed that the 60px vertical and 72px horizontal swings are plainly visible and that each three-ball group stays coherent while moving.
+
+## 2026-06-19 Dango spacing tuning
+
+### Implementation
+- Replaced the compact crossing-point layout used by stages 6-15 with a three-point circular layout that keeps each pair of 20px-radius dango at least 40px apart while preserving both shot routes.
+- Added per-group rotation for nearby crossing groups in stage 9 so separate groups also retain the same minimum spacing.
+- Adjusted stage 2's final dango coordinate to satisfy the same spacing rule.
+- Added regression coverage for all initial stage layouts and for moving-dango positions sampled throughout their motion cycles.
+
+### Verification
+- `npm test`: 59 tests passed, including all representative and alternate clear routes.
+- `npm run build`: succeeded. Vite still reports the existing large chunk warning.
+
+## 2026-06-19 Dango spacing expansion
+
+### Implementation
+- Increased the authored minimum dango center distance from 40px to 50px, leaving at least 10px of visible space between 20px-radius dango.
+- Expanded the shared three-dango layout and added a dedicated 5px pickup-forgiveness value so the wider visual placement remains compatible with the skewer-tip interaction without changing bomb or obstacle collision.
+- Repositioned stage 2's hand-authored arc group along its representative trajectory.
+- Rotated nearby groups in stages 8, 10, and 15 to prevent one intended shot from collecting a dango from a neighboring group.
+- Repositioned stage 9's three groups onto separated crossing points and updated their representative and alternate shots while preserving its three-landing-choice objective.
+- Kept the 50px minimum active both at rest and throughout moving-dango cycles.
+
+### Verification
+- `npm test`: 59 tests passed, including all representative and alternate clear routes.
+- `npm run build`: succeeded. Vite still reports the existing large chunk warning.
+- Browser smoke check at 1280x720 confirmed normal playfield rendering and no play-HUD regression; the 50px spacing guarantee is covered across all stages by the static and moving-position tests.
