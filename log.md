@@ -343,3 +343,25 @@ npm run dev
 - `npm test`: 59 tests passed, including all representative and alternate clear routes.
 - `npm run build`: succeeded. Vite still reports the existing large chunk warning.
 - Browser smoke check at 1280x720 confirmed normal playfield rendering and no play-HUD regression; the 50px spacing guarantee is covered across all stages by the static and moving-position tests.
+
+## 2026-06-19 Stage 6-15 trajectory-aligned dango placement
+
+### 背景
+- 団子間隔を50pxへ広げた結果、`choiceGroup` の円形クラスタ配置では3個のうち1個が代表射撃の軌道から26〜30px離れ、取得しきい値32pxに対する余裕が2〜6pxしかなく、1射で3連刺しするのが難しくなっていた。
+
+### 実装
+- ステージ6〜15の静止グループを `choiceGroup`（クラスタ）から、代表射撃の実軌道上に3個を並べる座標直書きグループへ変更（チャプター1と同方式）。各グループの主経路の取得余裕が約31pxに改善し、軌道に素直に通せば3連刺しになる。
+- 団子は軌道進行方向の手前から白→桜→よもぎの順に並べ、主経路で接触順ボーナスが自然に成立するようにした。
+- 軌道上配置は同一グループで左右に分かれる別解と幾何学的に両立しないため、別解は「同じ3個を取った後、下流で別の壁（主に右→床、一部は左）へ落とす射撃」を全数シミュレーションで再導出。各ステージに最低1つの別壁ルートを残し、複数解テストを維持。
+- 各ステージの得点壁を実際に到達可能な壁の和集合に整理（例: ステージ6〜9は右・床）。お品書きと図鑑ボーナスの目標スコアが到達可能な内容と整合するようにした。
+- 移動団子グループ（ステージ11・12）はタイミング依存のため `choiceGroup` のまま維持。ステージ11では新配置のg3を移動グループg1の揺れ列から64px離して再配置。
+- ステージ8は代替弾が先発で隣接グループの団子を巻き込む干渉を避けるため、別解を後段グループ1つに集約。
+- ステージ6〜15の目的文を新しい軌道・壁構成に合わせて更新。
+
+### 検証
+- `npm test`: 59 tests passed（全ステージの代表ルートと別解ルートのクリア、静止・移動の50px間隔を含む）。
+- `npm run build`: 成功（既存のチャンクサイズ警告のみ）。
+
+### 残る確認
+- 観察プレイテストで、軌道上配置により初見でも3連刺しが安定して決まるか、別解（別壁＝別団子）の発見率を確認。
+- 得点壁を右・床中心に整理した結果、ステージ6〜9の壁バリエーションがやや単調。必要なら一部グループの主軌道を左壁着弾へ振り直して変化を足す。

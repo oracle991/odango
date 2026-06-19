@@ -1,31 +1,39 @@
-import { choiceGroup } from "./choiceGroup";
 import type { StageRecipe } from "./types";
 
 export const bombGates = {
   id: "bomb-gates",
   name: "八、火門三つ",
   objective:
-    "爆弾は中央の雑な直線を咎める。左右と月見のどちらへ逃がすかで得点計画を変える。",
+    "爆弾を避ける三筋の軌道上に団子が並ぶ。焼きで仕上げるか、一段沈めて月見にするかを選ぶ。",
   chapter: 2,
   groups: [
-    choiceGroup({
+    {
       shot: { angle: 56, speed: 600 },
-      alternateShot: { angle: 80, speed: 760 },
-      center: { x: 933, y: 398 },
-    }),
-    choiceGroup({
+      balls: [
+        { x: 882, y: 409 },
+        { x: 933, y: 398 },
+        { x: 985, y: 401 },
+      ],
+    },
+    {
       shot: { angle: 100, speed: 760 },
-      alternateShot: { angle: 124, speed: 600 },
-      center: { x: 347, y: 398 },
-    }),
-    choiceGroup({
+      balls: [
+        { x: 361, y: 340 },
+        { x: 347, y: 398 },
+        { x: 334, y: 457 },
+      ],
+    },
+    {
       shot: { angle: 60, speed: 800 },
-      alternateShot: { angle: 64, speed: 600 },
-      center: { x: 817, y: 388 },
-      rotationDegrees: 90,
-    }),
+      alternateShots: [{ angle: 63, speed: 640 }],
+      balls: [
+        { x: 784, y: 429 },
+        { x: 817, y: 388 },
+        { x: 852, y: 350 },
+      ],
+    },
   ],
-  scoringWallIds: ["left", "right", "bottom"],
+  scoringWallIds: ["right", "bottom"],
   spareSkewers: 2,
   bombs: [
     { id: "bomb-low-left", x: 430, y: 535, radius: 26 },

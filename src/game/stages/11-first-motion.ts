@@ -5,7 +5,7 @@ export const firstMotion = {
   id: "first-motion",
   name: "十一、揺れる選択肢",
   objective:
-    "動くまとまりにも二つの正解筋を残す。タイミングで焼きにするか月見にするかを選ぶ。",
+    "揺れるまとまりはタイミングで取り、止まったまとまりは軌道上の三個を素直に通す。",
   chapter: 3,
   groups: [
     choiceGroup({
@@ -15,22 +15,32 @@ export const firstMotion = {
       moving: true,
       spread: 29.5,
     }),
-    choiceGroup({
+    {
       shot: { angle: 96, speed: 720 },
-      alternateShot: { angle: 128, speed: 720 },
-      center: { x: 472, y: 466 },
-    }),
-    choiceGroup({
+      balls: [
+        { x: 479, y: 415 },
+        { x: 472, y: 466 },
+        { x: 466, y: 518 },
+      ],
+    },
+    {
       shot: { angle: 60, speed: 720 },
-      alternateShot: { angle: 80, speed: 720 },
-      center: { x: 886, y: 337 },
-    }),
-    choiceGroup({
+      alternateShots: [{ angle: 64, speed: 650 }],
+      balls: [
+        { x: 874, y: 345 },
+        { x: 917, y: 316 },
+        { x: 964, y: 294 },
+      ],
+    },
+    {
       shot: { angle: 100, speed: 720 },
-      alternateShot: { angle: 120, speed: 720 },
-      center: { x: 396, y: 337 },
-    }),
+      balls: [
+        { x: 421, y: 261 },
+        { x: 396, y: 337 },
+        { x: 376, y: 415 },
+      ],
+    },
   ],
-  scoringWallIds: ["left", "right", "bottom"],
+  scoringWallIds: ["right", "bottom"],
   spareSkewers: 1,
 } satisfies StageRecipe;

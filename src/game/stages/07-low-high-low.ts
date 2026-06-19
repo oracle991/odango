@@ -1,29 +1,39 @@
-import { choiceGroup } from "./choiceGroup";
 import type { StageRecipe } from "./types";
 
 export const lowHighLow = {
   id: "low-high-low",
   name: "七、低く高く選ぶ",
   objective:
-    "近いまとまりほど角度差が小さく、遠いまとまりほど壁選択が大きく変わる。お品書きのために混ぜる。",
+    "高い山なりと低い直線、二筋の軌道上に三個ずつ並ぶ。狙った筋へ素直に通せば三連刺しになる。",
   chapter: 2,
   groups: [
-    choiceGroup({
+    {
       shot: { angle: 72, speed: 800 },
-      alternateShot: { angle: 80, speed: 760 },
-      center: { x: 861, y: 177 },
-    }),
-    choiceGroup({
+      alternateShots: [{ angle: 73, speed: 780 }],
+      balls: [
+        { x: 825, y: 221 },
+        { x: 861, y: 177 },
+        { x: 903, y: 141 },
+      ],
+    },
+    {
       shot: { angle: 100, speed: 760 },
-      alternateShot: { angle: 108, speed: 800 },
-      center: { x: 419, y: 177 },
-    }),
-    choiceGroup({
+      balls: [
+        { x: 453, y: 139 },
+        { x: 419, y: 177 },
+        { x: 397, y: 224 },
+      ],
+    },
+    {
       shot: { angle: 40, speed: 600 },
-      alternateShot: { angle: 84, speed: 600 },
-      center: { x: 765, y: 558 },
-    }),
+      alternateShots: [{ angle: 41, speed: 540 }],
+      balls: [
+        { x: 717, y: 592 },
+        { x: 766, y: 558 },
+        { x: 818, y: 529 },
+      ],
+    },
   ],
-  scoringWallIds: ["left", "right", "bottom"],
+  scoringWallIds: ["right", "bottom"],
   spareSkewers: 2,
 } satisfies StageRecipe;

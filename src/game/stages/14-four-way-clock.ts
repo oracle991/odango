@@ -1,33 +1,46 @@
-import { choiceGroup } from "./choiceGroup";
 import type { StageRecipe } from "./types";
 
 export const fourWayClock = {
   id: "four-way-clock",
   name: "十四、四方の刻み",
   objective:
-    "上下左右のまとまりを時計回りにも反時計回りにも崩せる。爆弾は急ぎ過ぎた直線だけを止める。",
+    "四方へ伸びる軌道上に団子が並ぶ。別解で壁を選び、爆弾は急ぎ過ぎた直線だけを止める。",
   chapter: 3,
   groups: [
-    choiceGroup({
+    {
       shot: { angle: 40, speed: 680 },
-      alternateShot: { angle: 68, speed: 680 },
-      center: { x: 1126, y: 461 },
-    }),
-    choiceGroup({
+      balls: [
+        { x: 1059, y: 456 },
+        { x: 1126, y: 461 },
+        { x: 1193, y: 476 },
+      ],
+    },
+    {
       shot: { angle: 72, speed: 800 },
-      alternateShot: { angle: 80, speed: 760 },
-      center: { x: 861, y: 177 },
-    }),
-    choiceGroup({
+      alternateShots: [{ angle: 75, speed: 750 }],
+      balls: [
+        { x: 828, y: 218 },
+        { x: 861, y: 177 },
+        { x: 900, y: 144 },
+      ],
+    },
+    {
       shot: { angle: 100, speed: 760 },
-      alternateShot: { angle: 108, speed: 800 },
-      center: { x: 419, y: 177 },
-    }),
-    choiceGroup({
+      balls: [
+        { x: 453, y: 139 },
+        { x: 419, y: 177 },
+        { x: 397, y: 224 },
+      ],
+    },
+    {
       shot: { angle: 112, speed: 680 },
-      alternateShot: { angle: 140, speed: 680 },
-      center: { x: 154, y: 461 },
-    }),
+      alternateShots: [{ angle: 119, speed: 630 }],
+      balls: [
+        { x: 179, y: 416 },
+        { x: 154, y: 462 },
+        { x: 131, y: 508 },
+      ],
+    },
   ],
   scoringWallIds: ["left", "right", "bottom"],
   spareSkewers: 1,
