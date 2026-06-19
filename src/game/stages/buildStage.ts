@@ -12,16 +12,16 @@ import type {
 } from "../simulation/types";
 import type { StageRecipe } from "./types";
 
-function motionFor(groupIndex: number, ballIndex: number): BallMotionDefinition {
+function motionFor(groupIndex: number): BallMotionDefinition {
   return {
     axis: groupIndex % 2 === 0 ? "y" : "x",
     amplitude:
       stageGenerationConfig.motionBaseAmplitude +
-      (ballIndex % 2) * stageGenerationConfig.motionAlternateAmplitudeBonus,
+      (groupIndex % 2) * stageGenerationConfig.motionAlternateAmplitudeBonus,
     periodSeconds:
       stageGenerationConfig.motionBasePeriodSeconds +
       groupIndex * stageGenerationConfig.motionPeriodStepSeconds,
-    phase: ballIndex * stageGenerationConfig.motionPhaseStep,
+    phase: groupIndex * stageGenerationConfig.motionPhaseStep,
   };
 }
 
@@ -36,7 +36,7 @@ function createBalls(recipe: StageRecipe): BallDefinition[] {
         color: ball.color ?? stageGenerationConfig.ballColors[ballIndex],
         motion:
           ball.motion ??
-          (group.moving ? motionFor(groupIndex, ballIndex) : undefined),
+          (group.moving ? motionFor(groupIndex) : undefined),
       };
     }),
   );

@@ -303,3 +303,16 @@ npm run dev
 ### Verification
 - `npm test`: 56 tests passed.
 - `npm run build`: succeeded. Vite still reports the existing large chunk warning.
+
+## 2026-06-19 Moving dango visibility tuning
+
+### Implementation
+- Increased generated moving-dango amplitudes from 6/9px to 60/72px, making the one-sided swing at least three times the 20px ball radius.
+- Unified the phase within each moving group so its three balls travel together instead of spreading apart over the enlarged swing.
+- Retimed stage 12's default representative route with one-second waits for its two moving groups; the alternate route remains immediately playable.
+- Added a regression test requiring every moving ball's one-sided swing to be at least three times its rendered radius.
+
+### Verification
+- `npm test`: 57 tests passed, including all representative and alternate clear routes.
+- `npm run build`: succeeded. Vite still reports the existing large chunk warning.
+- Browser comparison on stages 11 and 12 confirmed that the 60px vertical and 72px horizontal swings are plainly visible and that each three-ball group stays coherent while moving.

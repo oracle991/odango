@@ -7,8 +7,12 @@ import {
   representativeStageShots,
   validationStages,
 } from "./stage";
+import type { RepresentativeShot } from "./stage";
 
-function playStage(stageIndex: number, route = representativeStageShots[stageIndex]): {
+function playStage(
+  stageIndex: number,
+  route: readonly RepresentativeShot[] = representativeStageShots[stageIndex],
+): {
   simulation: GameSimulation;
   wallIds: string[];
   completedShots: boolean[];
@@ -18,6 +22,9 @@ function playStage(stageIndex: number, route = representativeStageShots[stageInd
   const completedShots: boolean[] = [];
 
   for (const shot of route) {
+    for (let elapsed = 0; elapsed < (shot.waitSeconds ?? 0); elapsed += 1 / 120) {
+      simulation.update(1 / 120);
+    }
     simulation.state.skewers -= 1;
     simulation.state.skewer = createSkewer(cannon, shot.angle, shot.speed);
 
@@ -61,6 +68,17 @@ describe("M5 stages", () => {
     expect(
       validationStages.some((stage) => stage.balls.some((ball) => ball.motion)),
     ).toBe(true);
+  });
+
+  it("keeps moving balls visibly displaced from their resting positions", () => {
+    const movingBalls = validationStages.flatMap((stage) =>
+      stage.balls.filter((ball) => ball.motion),
+    );
+
+    expect(movingBalls.length).toBeGreaterThan(0);
+    for (const ball of movingBalls) {
+      expect(ball.motion?.amplitude).toBeGreaterThanOrEqual(ball.radius * 3);
+    }
   });
 
   it.each(validationStages.map((stage, index) => [stage.name, index] as const))(

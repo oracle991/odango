@@ -9,14 +9,14 @@ export const movingPairs = {
   chapter: 3,
   groups: [
     choiceGroup({
-      shot: { angle: 52, speed: 720 },
+      shot: { angle: 52, speed: 720, waitSeconds: 1 },
       alternateShot: { angle: 84, speed: 640 },
       center: { x: 775, y: 497 },
       moving: true,
       spread: 16,
     }),
     choiceGroup({
-      shot: { angle: 96, speed: 640 },
+      shot: { angle: 96, speed: 640, waitSeconds: 1 },
       alternateShot: { angle: 128, speed: 720 },
       center: { x: 505, y: 497 },
       moving: true,

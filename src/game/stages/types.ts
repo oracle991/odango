@@ -8,6 +8,7 @@ import type {
 export interface RepresentativeShot {
   angle: number;
   speed: number;
+  waitSeconds?: number;
 }
 
 export interface StageBall {
