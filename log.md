@@ -365,3 +365,14 @@ npm run dev
 ### 残る確認
 - 観察プレイテストで、軌道上配置により初見でも3連刺しが安定して決まるか、別解（別壁＝別団子）の発見率を確認。
 - 得点壁を右・床中心に整理した結果、ステージ6〜9の壁バリエーションがやや単調。必要なら一部グループの主軌道を左壁着弾へ振り直して変化を足す。
+## 2026-06-23 Stage unlock gating disabled
+
+### Implementation
+- Changed progress defaults, save parsing, and result recording so `unlockedStageCount` is normalized to the full stage count.
+- Removed stage-clear gating from the stage-select cards, play-screen routing guard, and in-game next-stage button.
+- Data reset now restores settings and progress with all stages unlocked immediately.
+- The result screen's next-stage button can advance to the next stage even after a failed attempt, because later stages are no longer gated by clears.
+
+### Verification
+- `npm test`: 59 tests passed.
+- `npm run build`: succeeded.

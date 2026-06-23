@@ -274,7 +274,7 @@ function setGameplayUi(visible: boolean): void {
 function showScreen(screen: ScreenName, stageIndex = currentStageIndex): void {
   if (
     screen === "play" &&
-    (stageIndex < 0 || stageIndex >= progress.unlockedStageCount)
+    (stageIndex < 0 || stageIndex >= validationStages.length)
   ) {
     screen = "stage";
   }
@@ -317,7 +317,6 @@ function renderStageCards(): void {
   if (!stageGrid) return;
   stageGrid.replaceChildren();
   validationStages.forEach((stage, index) => {
-    const unlocked = index < progress.unlockedStageCount;
     const saved = progress.stages[stage.id];
     const rank = saved?.cleared
       ? calculateRank(saved.bestScore, stage.targetScore, true)
@@ -325,23 +324,18 @@ function renderStageCards(): void {
     const button = document.createElement("button");
     button.className = "stage-card";
     button.type = "button";
-    button.disabled = !unlocked;
     button.dataset.chapter = `${stage.chapter ?? 1}`;
     button.innerHTML = `
-      <span>${unlocked ? String(index + 1).padStart(2, "0") : "錠"}</span>
+      <span>${String(index + 1).padStart(2, "0")}</span>
       <strong>${stage.name ?? stage.id}</strong>
-      <small>${unlocked ? stage.objective ?? "" : "前のステージをクリアすると解放"}</small>
+      <small>${stage.objective ?? ""}</small>
       <em>${
         saved
           ? `BEST ${saved.bestScore.toLocaleString("ja-JP")} / RANK ${rank ?? "C"}`
-          : unlocked
-            ? `第${stage.chapter ?? 1}章 / 残り串 ${stage.skewers}`
-            : "LOCKED"
+          : `第${stage.chapter ?? 1}章 / 残り串 ${stage.skewers}`
       }</em>
     `;
-    if (unlocked) {
-      button.addEventListener("click", () => showScreen("play", index));
-    }
+    button.addEventListener("click", () => showScreen("play", index));
     stageGrid.append(button);
   });
 }
@@ -409,7 +403,7 @@ window.addEventListener("odango-hud", (event) => {
   }
   if (nextStageButton) {
     nextStageButton.disabled =
-      detail.stageIndex + 1 >= progress.unlockedStageCount;
+      detail.stageIndex + 1 >= validationStages.length;
   }
   if (chargeFill) chargeFill.style.setProperty("--charge", `${detail.charge * 100}%`);
   if (detail.charging && !wasCharging) audio.startCharge();
@@ -466,7 +460,7 @@ window.addEventListener("odango-hud", (event) => {
       if (resultNextButton) {
         const finalStage = detail.stageIndex === validationStages.length - 1;
         resultNextButton.textContent = finalStage ? "ステージ選択へ" : "次のステージ";
-        resultNextButton.disabled = !won && !finalStage;
+        resultNextButton.disabled = false;
       }
       audio.setPlaying(false);
     }
@@ -531,7 +525,7 @@ document.querySelectorAll<HTMLButtonElement>(".open-settings").forEach((button) 
 query("#settings-close-button")?.addEventListener("click", closeSettings);
 query("#reset-data-button")?.addEventListener("click", () => {
   settings = { ...defaultSettings };
-  progress = createDefaultProgress();
+  progress = createDefaultProgress(validationStages.length);
   localStorage.removeItem(settingsKey);
   localStorage.removeItem(progressKey);
   syncSettingsForm();

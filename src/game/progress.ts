@@ -13,10 +13,10 @@ export interface ProgressData {
   stages: Record<string, SavedStageProgress>;
 }
 
-export function createDefaultProgress(): ProgressData {
+export function createDefaultProgress(stageCount = 1): ProgressData {
   return {
     version: 1,
-    unlockedStageCount: 1,
+    unlockedStageCount: Math.max(1, stageCount),
     stages: {},
   };
 }
@@ -25,7 +25,7 @@ export function parseProgress(
   value: string | null,
   stageCount: number,
 ): ProgressData {
-  if (!value) return createDefaultProgress();
+  if (!value) return createDefaultProgress(stageCount);
 
   try {
     const parsed = JSON.parse(value) as Partial<ProgressData>;
@@ -33,14 +33,11 @@ export function parseProgress(
       parsed.stages && typeof parsed.stages === "object" ? parsed.stages : {};
     return {
       version: 1,
-      unlockedStageCount: Math.min(
-        stageCount,
-        Math.max(1, Number(parsed.unlockedStageCount) || 1),
-      ),
+      unlockedStageCount: Math.max(1, stageCount),
       stages,
     };
   } catch {
-    return createDefaultProgress();
+    return createDefaultProgress(stageCount);
   }
 }
 
@@ -59,7 +56,7 @@ export function calculateRank(
 export function recordStageResult(
   progress: ProgressData,
   stageId: string,
-  stageIndex: number,
+  _stageIndex: number,
   stageCount: number,
   score: number,
   won: boolean,
@@ -68,13 +65,9 @@ export function recordStageResult(
     bestScore: 0,
     cleared: false,
   };
-  const unlockedStageCount = won
-    ? Math.max(progress.unlockedStageCount, Math.min(stageCount, stageIndex + 2))
-    : progress.unlockedStageCount;
-
   return {
     version: 1,
-    unlockedStageCount,
+    unlockedStageCount: Math.max(1, stageCount),
     stages: {
       ...progress.stages,
       [stageId]: {
