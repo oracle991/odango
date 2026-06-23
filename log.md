@@ -376,3 +376,12 @@ npm run dev
 ### Verification
 - `npm test`: 59 tests passed.
 - `npm run build`: succeeded.
+
+## 2026-06-23 GitHub Pages deployment automation
+
+### Implementation
+- Added a GitHub Actions workflow that builds the Vite app on every push to `main` and deploys the generated `dist` directory to GitHub Pages.
+- Kept `dist/` out of git; deployment artifacts are produced by CI.
+
+### Verification
+- `npm run build`: succeeded locally before enabling the workflow.
