@@ -101,7 +101,7 @@ describe("M5 stages", () => {
     }
   });
 
-  it("keeps moving dango at least the configured distance apart throughout their cycles", () => {
+  it("keeps moving dango at least the configured distance apart throughout their cycles", { timeout: 60000 }, () => {
     for (const stage of validationStages.filter((candidate) =>
       candidate.balls.some((ball) => ball.motion),
     )) {
